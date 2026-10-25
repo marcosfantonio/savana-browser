@@ -46,6 +46,12 @@
   </gresource>
   <gresource prefix="/org/gnome/epiphany/page-templates">
     <file compressed="true">about.css</file>
+    <file compressed="true">start-page.html</file>
+    <file compressed="true">start-page.css</file>
+    <file compressed="true">start-page.js</file>
+    <file compressed="true">savanna-wallpaper.svg</file>
+    <file compressed="true">savanna-wallpaper-dark.svg</file>
+    <file compressed="true">logo.svg</file>
     <file compressed="true">error.css</file>
     <file compressed="true">error.html</file>
   </gresource>
@@ -63,6 +69,12 @@
     <file preprocess="xml-stripblanks" compressed="true">password-generator-refresh.svg</file>
   </gresource>
   <gresource prefix="/org/gnome/Epiphany/icons">
+    <file compressed="true" alias="scalable/actions/savanna-share-symbolic.svg">savanna-share-symbolic.svg</file>
+    <file compressed="true" alias="scalable/actions/savanna-tabs-symbolic.svg">savanna-tabs-symbolic.svg</file>
+    <file compressed="true" alias="scalable/actions/savanna-bookmarks-symbolic.svg">savanna-bookmarks-symbolic.svg</file>
+    <file compressed="true" alias="scalable/actions/savanna-reading-list-symbolic.svg">savanna-reading-list-symbolic.svg</file>
+    <file compressed="true" alias="scalable/actions/savanna-recent-symbolic.svg">savanna-recent-symbolic.svg</file>
+    <file compressed="true" alias="scalable/actions/savanna-sidebar-symbolic.svg">savanna-sidebar-symbolic.svg</file>
     <file compressed="true" alias="scalable/actions/arrows-circle-rotated-symbolic.svg">arrows-circle-rotated-symbolic.svg</file>
     <file compressed="true" alias="scalable/actions/ephy-download-symbolic.svg">ephy-download-symbolic.svg</file>
     <file compressed="true" alias="scalable/actions/ephy-download-done-symbolic.svg">ephy-download-done-symbolic.svg</file>
@@ -91,6 +103,7 @@
   <gresource prefix="/org/gnome/Epiphany">
     <file preprocess="xml-stripblanks" compressed="true" alias="shortcuts-dialog.ui">resources/gtk/shortcuts-dialog.ui</file>
     <file compressed="true">style.css</file>
+    <file compressed="true">savanna.css</file>
     <file compressed="true">style-elementary.css</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="org.gnome.Epiphany.metainfo.xml">@appid@.metainfo.xml</file>
   </gresource>

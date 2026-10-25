@@ -75,6 +75,8 @@ void          ephy_download_set_suggested_destination
 void          ephy_download_set_allow_overwrite   (EphyDownload *download,
                                                    gboolean      allow_overwrite);
 gboolean      ephy_download_get_was_moved         (EphyDownload *download);
+gboolean      ephy_download_get_was_opened        (EphyDownload *download);
+void          ephy_download_mark_opened           (EphyDownload *download);
 GDateTime    *ephy_download_get_start_time        (EphyDownload *download);
 GDateTime    *ephy_download_get_end_time          (EphyDownload *download);
 gboolean      ephy_download_get_initiating_web_extension_info

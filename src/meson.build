@@ -45,6 +45,7 @@ libephymain_sources = [
   'ephy-passwords-view.c',
   'ephy-privacy-report.c',
   'ephy-security-dialog.c',
+  'ephy-savanna-sidebar.c',
   'ephy-session.c',
   'ephy-shell.c',
   'ephy-site-menu-button.c',
@@ -120,6 +121,9 @@ blueprints = custom_target('blueprints',
     'resources/gtk/window.blp',
   ),
   output: '.',
+  # The output is a directory whose timestamp can change when binaries link.
+  # Always regenerate so toolbar template edits cannot reuse stale UI files.
+  build_always_stale: true,
   command: [find_program('blueprint-compiler'), 'batch-compile', '@OUTPUT@', '@CURRENT_SOURCE_DIR@', '@INPUT@'],
 )
 

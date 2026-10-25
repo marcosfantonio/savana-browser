@@ -455,18 +455,6 @@ ephy_action_bar_start_dispose (GObject *object)
 }
 
 static void
-update_new_tab_button_visibility (EphyActionBarStart *action_bar_start)
-{
-  EphyEmbedShell *embed_shell;
-
-  embed_shell = ephy_embed_shell_get_default ();
-
-  gtk_widget_set_visible (action_bar_start->new_tab_button,
-                          (ephy_embed_shell_get_mode (embed_shell) != EPHY_EMBED_SHELL_MODE_APPLICATION) &&
-                          !is_desktop_pantheon ());
-}
-
-static void
 ephy_action_bar_start_constructed (GObject *object)
 {
   EphyActionBarStart *action_bar_start = EPHY_ACTION_BAR_START (object);
@@ -492,9 +480,6 @@ ephy_action_bar_start_constructed (GObject *object)
     gtk_widget_set_visible (action_bar_start->homepage_button, FALSE);
     gtk_widget_set_visible (action_bar_start->site_menu_button, TRUE);
   }
-
-  /* New Tab Button */
-  update_new_tab_button_visibility (action_bar_start);
 
   if (ephy_profile_dir_is_web_application ()) {
     GtkWidget *navigation_box = ephy_action_bar_start_get_navigation_box (action_bar_start);
@@ -602,7 +587,7 @@ ephy_action_bar_start_set_adaptive_mode (EphyActionBarStart *action_bar,
 
   g_value_init (&val, G_TYPE_INT);
 
-  gtk_widget_set_visible (action_bar->new_tab_button, adaptive_mode == EPHY_ADAPTIVE_MODE_NORMAL);
+  gtk_widget_set_visible (action_bar->new_tab_button, FALSE);
   gtk_widget_set_visible (action_bar->combined_stop_reload_button, mode == EPHY_EMBED_SHELL_MODE_APPLICATION && adaptive_mode == EPHY_ADAPTIVE_MODE_NORMAL);
 
   if (adaptive_mode == EPHY_ADAPTIVE_MODE_NARROW)

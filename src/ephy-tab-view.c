@@ -615,7 +615,7 @@ notify_decoration_layout_cb (EphyTabView *self)
   gboolean inverted = is_layout_reversed ();
 
   if (self->tab_bar)
-    adw_tab_bar_set_inverted (self->tab_bar, inverted);
+    adw_tab_bar_set_inverted (self->tab_bar, FALSE);
 
   if (self->tab_overview)
     adw_tab_overview_set_inverted (self->tab_overview, inverted);

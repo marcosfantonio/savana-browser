@@ -407,92 +407,69 @@ ephy_about_handler_handle_applications (EphyAboutHandler       *handler,
 }
 
 static void
-history_service_query_urls_cb (EphyHistoryService     *history,
-                               GAsyncResult           *result,
-                               WebKitURISchemeRequest *request_param)
+render_start_page (WebKitURISchemeRequest *request,
+                    GList *urls,
+                    GList *suggestions)
 {
-  g_autoptr (WebKitURISchemeRequest) request = request_param;
   EphySnapshotService *snapshot_service;
   EphyEmbedShell *shell;
   GString *data_str;
   gsize data_length;
-  char *lang;
   GList *l;
-  g_autolist (EphyHistoryURL) urls = NULL;
-  g_autoptr (GError) error = NULL;
-  guint list_length;
-
-  urls = ephy_history_service_query_urls_finish (history, result, &error);
-  if (error) {
-    if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-      g_warning ("Failed to query overview URLs: %s", error->message);
-    return;
-  }
+  g_autoptr (GBytes) template_bytes = NULL;
+  g_autofree char *template = NULL;
+  g_auto (GStrv) template_parts = NULL;
+  g_autofree char *bookmarks = NULL;
+  g_autoptr (GString) prepared = NULL;
+  g_autoptr (GString) recommendations = g_string_new (NULL);
+  g_autofree char *font_name = NULL;
+  g_autofree char *font_family = NULL;
+  g_autofree char *font_style = NULL;
+  g_autofree char *font_attribute = NULL;
+  g_autoptr (PangoFontDescription) font = NULL;
+  double font_size;
+  char font_size_text[G_ASCII_DTOSTR_BUF_SIZE];
 
   snapshot_service = ephy_snapshot_service_get_default ();
   shell = ephy_embed_shell_get_default ();
 
   data_str = g_string_new (NULL);
 
-  lang = g_strdup (pango_language_to_string (gtk_get_default_language ()));
-  g_strdelimit (lang, "_-@", '\0');
+  template_bytes = g_resources_lookup_data ("/org/gnome/epiphany/page-templates/start-page.html",
+                                           G_RESOURCE_LOOKUP_FLAGS_NONE, NULL);
+  template = g_strndup (g_bytes_get_data (template_bytes, NULL), g_bytes_get_size (template_bytes));
+  prepared = g_string_new (template);
+  g_signal_emit_by_name (shell, "start-page-bookmarks", &bookmarks);
+  g_string_replace (prepared, "<!--FAVORITES-->", bookmarks ? bookmarks : "", 0);
 
-  g_string_append_printf (data_str,
-                          "<html xml:lang=\"%s\" lang=\"%s\" dir=\"%s\">\n"
-                          "<head>\n"
-                          "  <title>%s</title>\n"
-                          "  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\" />\n"
-                          "  <meta name=\"viewport\" content=\"width=device-width\">"
-                          "  <link href=\""EPHY_PAGE_TEMPLATE_ABOUT_CSS "\" rel=\"stylesheet\" type=\"text/css\">\n"
-                          "  <script> </script>\n"
-                          "</head>\n"
-                          "<body>\n",
-                          lang, lang,
-                          ((gtk_widget_get_default_direction () == GTK_TEXT_DIR_RTL) ? "rtl" : "ltr"),
-                          _(NEW_TAB_PAGE_TITLE));
-  g_free (lang);
+  for (GList *l = suggestions; l; l = l->next) {
+    EphyHistoryURL *url = l->data;
+    g_autofree char *title = ephy_encode_for_html (url->title && *url->title ? url->title : url->url);
+    g_autofree char *href = ephy_encode_for_html_attribute (url->url);
+    g_autoptr (GUri) uri = g_uri_parse (url->url, G_URI_FLAGS_PARSE_RELAXED, NULL);
+    g_autofree char *host = ephy_encode_for_html (uri && g_uri_get_host (uri) ? g_uri_get_host (uri) : url->url);
 
-  list_length = g_list_length (urls);
-
-  if (list_length == 0) {
-    GtkIconTheme *icon_theme;
-    g_autoptr (GtkIconPaintable) paintable = NULL;
-    g_autofree char *path = NULL;
-    g_autofree char *icon = g_strconcat (APPLICATION_ID, "-symbolic", NULL);
-
-    icon_theme = gtk_icon_theme_get_for_display (gdk_display_get_default ());
-    paintable = gtk_icon_theme_lookup_icon (icon_theme,
-                                            icon,
-                                            NULL,
-                                            128,
-                                            1,
-                                            GTK_TEXT_DIR_LTR,
-                                            GTK_ICON_LOOKUP_NONE);
-
-    if (paintable) {
-      g_autoptr (GFile) file = gtk_icon_paintable_get_file (paintable);
-
-      path = g_file_get_path (file);
-    }
-
-    g_string_append_printf (data_str,
-                            "  <div id=\"overview\" class=\"overview-empty\">\n"
-                            "    <img src=\"file://%s\"/>\n"
-                            "    <div><h1>%s</h1></div>\n"
-                            "    <div><p>%s</p></div>\n"
-                            "  </div>\n"
-                            "</body></html>\n",
-                            path ? path : "",
-                            /* Displayed when opening the browser for the first time. */
-                            _("Welcome to Web"), _("Start browsing and your most-visited sites will appear here."));
-    goto out;
+    g_string_append_printf (recommendations, "<a class=\"suggestion-card user-suggestion\" href=\"%s\"><span aria-hidden=\"true\">↗</span><div><strong>%s</strong><small>%s</small></div></a>", href, title, host);
   }
+  if (!recommendations->len)
+    g_string_append (recommendations, "<p class=\"empty-state\">Suas sugestões aparecerão aqui conforme você navegar.</p>");
+  g_string_replace (prepared, "<!--RECOMMENDATIONS-->", recommendations->str, 0);
+  if (adw_style_manager_get_dark (adw_style_manager_get_default ()))
+    g_string_replace (prepared, "data-theme=\"light\"", "data-theme=\"dark\"", 0);
 
-  g_string_append (data_str,
-                   "<div id=\"overview\">\n");
-
-  g_string_append (data_str,
-                   "<div id=\"most-visited-grid\">\n");
+  g_object_get (gtk_settings_get_default (), "gtk-font-name", &font_name, NULL);
+  font = pango_font_description_from_string (font_name ? font_name : "Sans 10");
+  font_family = g_strescape (pango_font_description_get_family (font), NULL);
+  font_size = (double)pango_font_description_get_size (font) / PANGO_SCALE;
+  if (!pango_font_description_get_size_is_absolute (font))
+    font_size *= 96.0 / 72.0;
+  g_ascii_formatd (font_size_text, sizeof font_size_text, "%.3f", font_size);
+  font_style = g_strdup_printf ("font-family: \"%s\"; font-size: %spx; font-weight: %d", font_family, font_size_text,
+                                pango_font_description_get_weight (font));
+  font_attribute = ephy_encode_for_html_attribute (font_style);
+  g_string_replace (prepared, "<!--SYSTEM_FONT-->", font_attribute, 0);
+  template_parts = g_strsplit (prepared->str, "<!--SUGGESTIONS-->", 2);
+  g_string_append (data_str, template_parts[0]);
 
   for (l = urls; l; l = g_list_next (l)) {
     EphyHistoryURL *url = (EphyHistoryURL *)l->data;
@@ -526,30 +503,49 @@ history_service_query_urls_cb (EphyHistoryService     *history,
                             entity_encoded_title);
   }
 
-  g_string_append (data_str,
-                   "  </div>\n"
-                   "  </div>\n"
-                   "</body></html>\n");
+  g_string_append (data_str, template_parts[1]);
 
-out:
   data_length = data_str->len;
   ephy_about_handler_finish_request (request, g_string_free_and_steal (data_str), data_length);
 }
 
-static gboolean
-ephy_about_handler_handle_newtab (EphyAboutHandler       *handler,
-                                  WebKitURISchemeRequest *request)
+static void
+start_page_suggestions_cb (EphyHistoryService *history,
+                           GAsyncResult *result,
+                           WebKitURISchemeRequest *request_param)
 {
-  char *data;
+  g_autoptr (WebKitURISchemeRequest) request = request_param;
+  g_autoptr (GError) error = NULL;
+  g_autolist (EphyHistoryURL) suggestions = ephy_history_service_query_urls_finish (history, result, &error);
 
-  data = g_strdup_printf ("<html style=\"color-scheme: light dark;\"><head><title>%s</title>"
-                          "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />"
-                          "</head><body></body></html>",
-                          _(NEW_TAB_PAGE_TITLE));
+  if (error) {
+    webkit_uri_scheme_request_finish_error (request, error);
+    return;
+  }
+  render_start_page (request, g_object_get_data (G_OBJECT (request), "start-page-most-visited"), suggestions);
+}
 
-  ephy_about_handler_finish_request (request, data, -1);
+static void
+history_service_query_urls_cb (EphyHistoryService *history,
+                               GAsyncResult *result,
+                               WebKitURISchemeRequest *request_param)
+{
+  g_autoptr (WebKitURISchemeRequest) request = request_param;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (EphyHistoryQuery) query = ephy_history_query_new ();
+  GList *urls = ephy_history_service_query_urls_finish (history, result, &error);
 
-  return TRUE;
+  if (error) {
+    webkit_uri_scheme_request_finish_error (request, error);
+    return;
+  }
+  g_object_set_data_full (G_OBJECT (request), "start-page-most-visited", urls, (GDestroyNotify)ephy_history_url_list_free);
+  query->sort_type = EPHY_HISTORY_SORT_FRECENCY;
+  query->limit = 6;
+  query->ignore_hidden = TRUE;
+  query->ignore_local = TRUE;
+  ephy_history_service_query_urls (history, query, NULL,
+                                   (GAsyncReadyCallback)start_page_suggestions_cb, g_object_ref (request));
 }
 
 EphyHistoryQuery *
@@ -656,7 +652,7 @@ ephy_about_handler_handle_request (EphyAboutHandler       *handler,
   else if (g_strcmp0 (path, "applications") == 0)
     handled = ephy_about_handler_handle_applications (handler, request);
   else if (g_strcmp0 (path, "newtab") == 0)
-    handled = ephy_about_handler_handle_newtab (handler, request);
+    handled = ephy_about_handler_handle_html_overview (handler, request);
   else if (g_strcmp0 (path, "overview") == 0)
     handled = ephy_about_handler_handle_html_overview (handler, request);
   else if (g_strcmp0 (path, "incognito") == 0)

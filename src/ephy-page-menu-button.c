@@ -30,6 +30,7 @@ struct _EphyPageMenuButton {
   AdwBin parent_instance;
 
   GtkWidget *menu_button;
+  GtkWidget *menu_stack;
   GMenu *page_menu;
   GtkWidget *page_menu_popover;
   GtkWidget *zoom_level;
@@ -96,6 +97,7 @@ ephy_page_menu_button_class_init (EphyPageMenuButtonClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/epiphany/gtk/page-menu-button.ui");
 
   gtk_widget_class_bind_template_child (widget_class, EphyPageMenuButton, menu_button);
+  gtk_widget_class_bind_template_child (widget_class, EphyPageMenuButton, menu_stack);
   gtk_widget_class_bind_template_child (widget_class, EphyPageMenuButton, page_menu);
   gtk_widget_class_bind_template_child (widget_class, EphyPageMenuButton, page_menu_popover);
 }
@@ -148,7 +150,17 @@ ephy_page_menu_button_new (void)
 void
 ephy_page_menu_button_popup (EphyPageMenuButton *self)
 {
+  if (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (self->menu_stack)), "sidebar") == 0) {
+    gtk_widget_activate_action (GTK_WIDGET (self), "win.toggle-sidebar", NULL);
+    return;
+  }
   gtk_menu_button_popup (GTK_MENU_BUTTON (self->menu_button));
+}
+
+void
+ephy_page_menu_button_set_sidebar_mode (EphyPageMenuButton *self)
+{
+  gtk_stack_set_visible_child_name (GTK_STACK (self->menu_stack), "sidebar");
 }
 
 void

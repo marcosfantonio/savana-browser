@@ -52,6 +52,7 @@
 #include "ephy-flatpak-utils.h"
 #include "ephy-fullscreen-box.h"
 #include "ephy-header-bar.h"
+#include "ephy-downloads-popover.h"
 #include "ephy-lib-type-builtins.h"
 #include "ephy-link.h"
 #include "ephy-location-entry.h"
@@ -60,6 +61,7 @@
 #include "ephy-prefs.h"
 #include "ephy-reader-handler.h"
 #include "ephy-security-dialog.h"
+#include "ephy-savanna-sidebar.h"
 #include "ephy-session.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
@@ -162,6 +164,8 @@ struct _EphyWindow {
   GtkWidget *action_bar_revealer;
   GtkWidget *action_bar;
   GtkWidget *overlay_split_view;
+  GtkWidget *navigation_split_view;
+  GtkWidget *sidebar_downloads_button;
   GtkWidget *bottom_sheet;
   GtkWidget *bookmarks_dialog;
   EphyEmbed *active_embed;
@@ -541,7 +545,7 @@ sync_chromes_visibility (EphyWindow *window)
                           (!fullscreen || window->show_fullscreen_header_bar));
   gtk_widget_set_visible (GTK_WIDGET (window->tab_bar),
                           !fullscreen_lockdown &&
-                          (show_tabsbar && is_wide && !(window->is_popup) &&
+                          (show_tabsbar && is_wide && !window->is_popup &&
                            (!fullscreen || window->show_fullscreen_header_bar)));
   gtk_widget_set_visible (GTK_WIDGET (window->action_bar),
                           !fullscreen_lockdown && !is_wide &&
@@ -979,7 +983,41 @@ change_combined_stop_reload_state (GSimpleAction *action,
   g_simple_action_set_state (action, loading);
 }
 
+static void
+toggle_sidebar_cb (GSimpleAction *action,
+                    GVariant *parameter,
+                    gpointer user_data)
+{
+  EphyWindow *self = EPHY_WINDOW (user_data);
+  AdwOverlaySplitView *split = ADW_OVERLAY_SPLIT_VIEW (self->navigation_split_view);
+
+  adw_overlay_split_view_set_show_sidebar (split, !adw_overlay_split_view_get_show_sidebar (split));
+}
+
+static void
+sidebar_downloads_mapped_cb (GtkWidget *button,
+                              EphyWindow *window)
+{
+  g_signal_handlers_disconnect_by_func (button, sidebar_downloads_mapped_cb, window);
+  gtk_menu_button_popup (GTK_MENU_BUTTON (button));
+}
+
+void
+ephy_window_show_downloads (EphyWindow *window)
+{
+  GtkWidget *button = window->sidebar_downloads_button;
+
+  adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->navigation_split_view), TRUE);
+  if (gtk_widget_get_mapped (button)) {
+    gtk_menu_button_popup (GTK_MENU_BUTTON (button));
+  } else {
+    g_signal_handlers_disconnect_by_func (button, sidebar_downloads_mapped_cb, window);
+    g_signal_connect_object (button, "map", G_CALLBACK (sidebar_downloads_mapped_cb), window, 0);
+  }
+}
+
 static const GActionEntry window_entries [] = {
+  { "toggle-sidebar", toggle_sidebar_cb },
   { "page-menu", window_cmd_page_menu },
   { "new-tab", window_cmd_new_tab },
   { "open", window_cmd_open },
@@ -1243,6 +1281,10 @@ sync_tab_address (EphyWebView *view,
     return;
 
   address = ephy_web_view_get_display_address (view);
+  if (ephy_web_view_is_overview (view) || ephy_web_view_is_newtab (view) || ephy_web_view_get_is_blank (view))
+    gtk_widget_remove_css_class (GTK_WIDGET (window), "savanna-compact");
+  else
+    gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-compact");
   typed_address = ephy_web_view_get_typed_address (view);
   is_internal_page = g_str_has_prefix (address, "about:") || g_str_has_prefix (address, "ephy-about:");
 
@@ -4548,6 +4590,18 @@ shortcuts_action_cb (EphyWindow *window)
 }
 
 static void
+sync_browser_dark_style (AdwStyleManager *manager,
+                          GParamSpec *pspec,
+                          EphyWindow *self)
+{
+  gtk_widget_add_css_class (GTK_WIDGET (self), "savanna-window");
+  if (adw_style_manager_get_dark (manager))
+    gtk_widget_add_css_class (GTK_WIDGET (self), "savanna-dark");
+  else
+    gtk_widget_remove_css_class (GTK_WIDGET (self), "savanna-dark");
+}
+
+static void
 ephy_window_constructed (GObject *object)
 {
   EphyWindow *window;
@@ -4561,6 +4615,7 @@ ephy_window_constructed (GObject *object)
   GApplication *app;
   EphyDownloadsManager *downloads_manager;
   GtkEventController *scroll_controller;
+  EphyFullscreenBox *page_box;
 
 #if 0
   /* Disabled due to https://gitlab.gnome.org/GNOME/epiphany/-/issues/1915 */
@@ -4570,6 +4625,9 @@ ephy_window_constructed (GObject *object)
   G_OBJECT_CLASS (ephy_window_parent_class)->constructed (object);
 
   window = EPHY_WINDOW (object);
+  g_signal_connect_object (adw_style_manager_get_default (), "notify::dark",
+                           G_CALLBACK (sync_browser_dark_style), window, 0);
+  sync_browser_dark_style (adw_style_manager_get_default (), NULL, window);
 
   window->action_groups = g_hash_table_new_full (g_str_hash,
                                                  g_str_equal,
@@ -4636,7 +4694,31 @@ ephy_window_constructed (GObject *object)
   }
 
   window->tab_view = setup_tab_view (window);
+  {
+    GtkWidget *sidebar_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+    GtkWidget *sidebar = ephy_savanna_sidebar_new (window);
+    GtkWidget *tools = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+    GtkWidget *preferences = gtk_button_new_from_icon_name ("emblem-system-symbolic");
+
+    gtk_widget_add_css_class (sidebar_box, "savanna-sidebar-pane");
+    gtk_widget_set_vexpand (sidebar, TRUE);
+    gtk_box_append (GTK_BOX (sidebar_box), sidebar);
+    gtk_widget_add_css_class (tools, "savanna-sidebar-tools");
+    gtk_widget_set_halign (tools, GTK_ALIGN_CENTER);
+    window->sidebar_downloads_button = gtk_menu_button_new ();
+    gtk_menu_button_set_icon_name (GTK_MENU_BUTTON (window->sidebar_downloads_button), "folder-download-symbolic");
+    gtk_widget_set_tooltip_text (window->sidebar_downloads_button, _("Downloads"));
+    gtk_widget_add_css_class (window->sidebar_downloads_button, "savanna-sidebar-downloads");
+    gtk_menu_button_set_popover (GTK_MENU_BUTTON (window->sidebar_downloads_button), ephy_downloads_popover_new ());
+    gtk_widget_set_tooltip_text (preferences, _("Preferences"));
+    gtk_actionable_set_action_name (GTK_ACTIONABLE (preferences), "app.preferences");
+    gtk_box_append (GTK_BOX (tools), window->sidebar_downloads_button);
+    gtk_box_append (GTK_BOX (tools), preferences);
+    gtk_box_append (GTK_BOX (sidebar_box), tools);
+    adw_overlay_split_view_set_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->navigation_split_view), sidebar_box);
+  }
   window->tab_bar = adw_tab_bar_new ();
+  gtk_widget_add_css_class (GTK_WIDGET (window->tab_bar), "savanna-tab-bar");
 
   adw_tab_bar_set_view (window->tab_bar, ephy_tab_view_get_tab_view (window->tab_view));
   adw_tab_overview_set_view (ADW_TAB_OVERVIEW (window->overview), ephy_tab_view_get_tab_view (window->tab_view));
@@ -4669,14 +4751,19 @@ ephy_window_constructed (GObject *object)
   g_signal_connect_object (scroll_controller, "scroll", G_CALLBACK (scroll_cb), window, G_CONNECT_SWAPPED);
   gtk_widget_add_controller (GTK_WIDGET (window->tab_view), scroll_controller);
 
-  ephy_fullscreen_box_set_content (window->fullscreen_box, GTK_WIDGET (window->toast_overlay));
+  /* Tabs belong to the page pane, not above the full-height sidebar. */
+  page_box = ephy_fullscreen_box_new ();
+  ephy_fullscreen_box_set_content (page_box, window->toast_overlay);
+  ephy_fullscreen_box_add_top_bar (page_box, GTK_WIDGET (window->tab_bar));
+  g_object_bind_property (window->fullscreen_box, "fullscreen", page_box, "fullscreen", G_BINDING_SYNC_CREATE);
+  g_object_bind_property (window->fullscreen_box, "autohide", page_box, "autohide", G_BINDING_SYNC_CREATE);
+  adw_overlay_split_view_set_content (ADW_OVERLAY_SPLIT_VIEW (window->navigation_split_view), GTK_WIDGET (page_box));
   window->header_bin_top = adw_bin_new ();
   adw_bin_set_child (ADW_BIN (window->header_bin_top), window->header_bar);
   ephy_fullscreen_box_add_top_bar (window->fullscreen_box, GTK_WIDGET (window->header_bin_top));
   window->header_bin_bottom = adw_bin_new ();
   ephy_fullscreen_box_add_bottom_bar (window->fullscreen_box, GTK_WIDGET (window->header_bin_bottom));
 
-  ephy_fullscreen_box_add_top_bar (window->fullscreen_box, GTK_WIDGET (window->tab_bar));
   ephy_fullscreen_box_add_bottom_bar (window->fullscreen_box, window->action_bar_revealer);
 
   ephy_tab_view_set_tab_bar (window->tab_view, window->tab_bar);
@@ -4787,6 +4874,7 @@ ephy_window_class_init (EphyWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, overview);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, fullscreen_box);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, bookmarks_dialog);
+  gtk_widget_class_bind_template_child (widget_class, EphyWindow, navigation_split_view);
 
   gtk_widget_class_bind_template_callback (widget_class, notify_fullscreen_cb);
   gtk_widget_class_bind_template_callback (widget_class, show_sidebar_cb);

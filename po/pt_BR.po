@@ -5668,3 +5668,121 @@ msgstr "_Habilitar"
 #~ msgctxt "shortcut window"
 #~ msgid "Open web application manager"
 #~ msgstr "Abre o gerenciador de aplicativos web"
+
+#: src/resources/gtk/prefs-appearance-page.blp
+msgid "Theme"
+msgstr "Tema"
+
+#: src/resources/gtk/prefs-appearance-page.blp
+msgid "System"
+msgstr "Sistema"
+
+#: src/resources/gtk/window.blp
+msgid "Open Tabs"
+msgstr "Abas abertas"
+
+#: src/resources/gtk/window.blp
+msgid "Saved"
+msgstr "Salvos"
+
+#: src/resources/gtk/page-menu-button.blp
+msgid "Show Sidebar"
+msgstr "Mostrar painel lateral"
+
+#: src/resources/gtk/window.blp
+msgid "Hide Sidebar"
+msgstr "Ocultar painel lateral"
+
+#: src/ephy-window.c
+msgid "Personal — %d tab"
+msgid_plural "Personal — %d tabs"
+msgstr[0] "Pessoal — %d aba"
+msgstr[1] "Pessoal — %d abas"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Personal Tab Groups"
+msgstr "Grupos de abas pessoais"
+
+#: src/ephy-savanna-sidebar.c
+msgid "New Tab Group"
+msgstr "Novo grupo de abas"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Rename Tab Group"
+msgstr "Renomear grupo de abas"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Tab Group"
+msgstr "Grupo de abas"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Manage Tab Group"
+msgstr "Gerenciar grupo de abas"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Delete Tab Group?"
+msgstr "Excluir grupo de abas?"
+
+#: src/ephy-savanna-sidebar.c
+msgid "The saved group will be removed. Its open tabs will not be closed."
+msgstr "O grupo salvo será removido. Suas abas abertas não serão fechadas."
+
+#: src/ephy-savanna-sidebar.c
+msgid "Save the tabs in this window as a group. Groups reopen in their own window without closing your other tabs."
+msgstr "Salve as abas desta janela como um grupo. Cada grupo reabre em sua própria janela, sem fechar suas outras abas."
+
+#: src/ephy-savanna-sidebar.c
+msgid "Devices"
+msgstr "Dispositivos"
+
+#: src/ephy-savanna-sidebar.c
+msgid "iPhone & Android"
+msgstr "iPhone e Android"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Connect Devices…"
+msgstr "Conectar dispositivos…"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Recently Saved"
+msgstr "Salvos recentemente"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Reading List"
+msgstr "Lista de leitura"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Shared with You"
+msgstr "Compartilhados com você"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Save Current Page to Reading List"
+msgstr "Salvar página atual na lista de leitura"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Saved to Reading List"
+msgstr "Salvo na lista de leitura"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Mark as Read"
+msgstr "Marcar como lido"
+
+#: src/ephy-savanna-sidebar.c
+msgid "No Shared Links"
+msgstr "Nenhum link compartilhado"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Nothing Saved Yet"
+msgstr "Nada salvo ainda"
+
+#: src/ephy-savanna-sidebar.c
+msgid "Receiving links from other devices is not supported yet. No shared content is available."
+msgstr "O recebimento de links de outros dispositivos ainda não é suportado. Não há conteúdo compartilhado disponível."
+
+#: src/ephy-savanna-sidebar.c
+msgid "Save a page to read it later. Saved pages remain here after restarting Savanna."
+msgstr "Salve uma página para ler depois. As páginas salvas permanecem aqui após reiniciar o Savanna."
+
+#: src/ephy-savanna-sidebar.c
+msgid "Your most recently saved bookmarks will appear here."
+msgstr "Seus favoritos salvos mais recentemente aparecerão aqui."

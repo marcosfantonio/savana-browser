@@ -3010,12 +3010,7 @@ window_cmd_show_downloads (GSimpleAction *action,
                            gpointer       user_data)
 {
   EphyWindow *window = EPHY_WINDOW (user_data);
-  EphyHeaderBar *header_bar;
-  EphyActionBarEnd *action_bar_end;
-
-  header_bar = EPHY_HEADER_BAR (ephy_window_get_header_bar (window));
-  action_bar_end = EPHY_ACTION_BAR_END (ephy_header_bar_get_action_bar_end (header_bar));
-  ephy_action_bar_end_show_downloads (action_bar_end);
+  ephy_window_show_downloads (window);
 }
 
 void

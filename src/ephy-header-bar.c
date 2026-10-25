@@ -28,6 +28,8 @@
 #include <glib/gi18n.h>
 
 #include "ephy-desktop-utils.h"
+#include "ephy-embed-container.h"
+#include "ephy-embed.h"
 #include "ephy-embed-utils.h"
 #include "ephy-file-helpers.h"
 #include "ephy-flatpak-utils.h"
@@ -57,6 +59,9 @@ struct _EphyHeaderBar {
   EphyActionBarEnd *action_bar_end;
   GtkWidget *event_box;
   GtkWidget *page_menu_button;
+  GtkWidget *share_button;
+  GtkWidget *new_tab_button;
+  GtkWidget *tabs_button;
   GtkWidget *zoom_level_label;
   GtkWidget *restore_button;
   GtkWidget *combined_stop_reload_button;
@@ -120,6 +125,21 @@ hide_timeout_cb (EphyHeaderBar *header_bar)
   header_bar->popover_hide_timeout_id = 0;
 }
 
+static void
+share_button_clicked_cb (GtkButton     *button,
+                         EphyHeaderBar *header_bar)
+{
+  EphyEmbed *embed = ephy_embed_container_get_active_child (EPHY_EMBED_CONTAINER (header_bar->window));
+  const char *uri;
+
+  if (!embed)
+    return;
+
+  uri = webkit_web_view_get_uri (WEBKIT_WEB_VIEW (ephy_embed_get_web_view (embed)));
+  if (uri)
+    gdk_clipboard_set_text (gtk_widget_get_clipboard (GTK_WIDGET (button)), uri);
+}
+
 void
 fullscreen_changed_cb (EphyHeaderBar *header_bar)
 {
@@ -173,8 +193,8 @@ ephy_header_bar_constructed (GObject *object)
 
     clamp = adw_clamp_new ();
     gtk_widget_set_hexpand (GTK_WIDGET (clamp), TRUE);
-    adw_clamp_set_maximum_size (ADW_CLAMP (clamp), 860);
-    adw_clamp_set_tightening_threshold (ADW_CLAMP (clamp), 560);
+    adw_clamp_set_maximum_size (ADW_CLAMP (clamp), 540);
+    adw_clamp_set_tightening_threshold (ADW_CLAMP (clamp), 420);
     adw_clamp_set_child (ADW_CLAMP (clamp), GTK_WIDGET (header_bar->title_widget));
 
     adw_bin_set_child (ADW_BIN (header_bar->event_box), clamp);
@@ -187,6 +207,12 @@ ephy_header_bar_constructed (GObject *object)
   gtk_size_group_add_widget (downloads_size_group,
                              ephy_action_bar_end_get_downloads_revealer (header_bar->action_bar_end));
   g_object_unref (downloads_size_group);
+
+  /* Keep the Safari-style controls in the header, not next to navigation. */
+  gtk_widget_set_visible (ephy_action_bar_start_get_placeholder (header_bar->action_bar_start), FALSE);
+  gtk_widget_set_visible (header_bar->share_button, !ephy_profile_dir_is_web_application ());
+  gtk_widget_set_visible (header_bar->new_tab_button, !ephy_profile_dir_is_web_application ());
+  gtk_widget_set_visible (header_bar->tabs_button, !ephy_profile_dir_is_web_application ());
 
   if (ephy_profile_dir_is_web_application ()) {
     GtkWidget *navigation_box = ephy_action_bar_start_get_navigation_box (header_bar->action_bar_start);
@@ -210,6 +236,9 @@ static void
 ephy_header_bar_init (EphyHeaderBar *header_bar)
 {
   gtk_widget_init_template (GTK_WIDGET (header_bar));
+  gtk_widget_add_css_class (header_bar->header_bar, "savanna-header-bar");
+  gtk_widget_add_css_class (header_bar->page_menu_button, "savanna-menu");
+  ephy_page_menu_button_set_sidebar_mode (EPHY_PAGE_MENU_BUTTON (header_bar->page_menu_button));
 }
 
 static void
@@ -230,7 +259,11 @@ ephy_header_bar_class_init (EphyHeaderBarClass *klass)
   gtk_widget_class_bind_template_child (widget_class, EphyHeaderBar, event_box);
   gtk_widget_class_bind_template_child (widget_class, EphyHeaderBar, restore_button);
   gtk_widget_class_bind_template_child (widget_class, EphyHeaderBar, page_menu_button);
+  gtk_widget_class_bind_template_child (widget_class, EphyHeaderBar, share_button);
+  gtk_widget_class_bind_template_child (widget_class, EphyHeaderBar, new_tab_button);
+  gtk_widget_class_bind_template_child (widget_class, EphyHeaderBar, tabs_button);
   gtk_widget_class_bind_template_child (widget_class, EphyHeaderBar, action_bar_end);
+  gtk_widget_class_bind_template_callback (widget_class, share_button_clicked_cb);
 
   object_properties[PROP_WINDOW] =
     g_param_spec_object ("window",
@@ -292,14 +325,18 @@ ephy_header_bar_set_adaptive_mode (EphyHeaderBar    *header_bar,
       gtk_widget_set_visible (GTK_WIDGET (header_bar->action_bar_start), TRUE);
       gtk_widget_set_visible (GTK_WIDGET (header_bar->action_bar_end), TRUE);
       gtk_widget_set_visible (header_bar->page_menu_button, TRUE);
-      adw_header_bar_set_show_end_title_buttons (ADW_HEADER_BAR (header_bar->header_bar), TRUE);
+      gtk_widget_set_visible (header_bar->share_button, !ephy_profile_dir_is_web_application ());
+      gtk_widget_set_visible (header_bar->new_tab_button, !ephy_profile_dir_is_web_application ());
+      gtk_widget_set_visible (header_bar->tabs_button, !ephy_profile_dir_is_web_application ());
 
       break;
     case EPHY_ADAPTIVE_MODE_NARROW:
       gtk_widget_set_visible (GTK_WIDGET (header_bar->action_bar_start), FALSE);
       gtk_widget_set_visible (GTK_WIDGET (header_bar->action_bar_end), FALSE);
       gtk_widget_set_visible (header_bar->page_menu_button, FALSE);
-      adw_header_bar_set_show_end_title_buttons (ADW_HEADER_BAR (header_bar->header_bar), FALSE);
+      gtk_widget_set_visible (header_bar->share_button, FALSE);
+      gtk_widget_set_visible (header_bar->new_tab_button, FALSE);
+      gtk_widget_set_visible (header_bar->tabs_button, FALSE);
 
       break;
   }

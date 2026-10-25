@@ -624,6 +624,68 @@ test_cancellation (void)
   g_main_loop_run (loop);
 }
 
+static void
+frecency_query_cb (EphyHistoryService *service,
+                   GAsyncResult *result,
+                   gpointer user_data)
+{
+  g_autoptr (GError) error = NULL;
+  g_autolist (EphyHistoryURL) urls = ephy_history_service_query_urls_finish (service, result, &error);
+  const char *expected[] = { "grouped.test", "mixed.test", "recent.test", "old.test" };
+  guint i = 0;
+
+  g_assert_no_error (error);
+  g_assert_cmpuint (g_list_length (urls), ==, G_N_ELEMENTS (expected));
+  for (GList *l = urls; l; l = l->next) {
+    EphyHistoryURL *url = l->data;
+    g_autoptr (GUri) uri = g_uri_parse (url->url, G_URI_FLAGS_NONE, NULL);
+    g_assert_cmpstr (g_uri_get_host (uri), ==, expected[i++]);
+  }
+  g_main_loop_quit (user_data);
+}
+
+static void
+frecency_visits_added_cb (EphyHistoryService *service,
+                          GAsyncResult *result,
+                          gpointer user_data)
+{
+  g_autoptr (GError) error = NULL;
+  g_autoptr (EphyHistoryQuery) query = ephy_history_query_new ();
+
+  g_assert_true (ephy_history_service_add_visits_finish (service, result, &error));
+  g_assert_no_error (error);
+  query->sort_type = EPHY_HISTORY_SORT_FRECENCY;
+  query->ignore_hidden = TRUE;
+  query->ignore_local = TRUE;
+  query->limit = 4;
+  ephy_history_service_query_urls (service, query, NULL, (GAsyncReadyCallback)frecency_query_cb, user_data);
+}
+
+static void
+test_frecency (void)
+{
+  g_autoptr (GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  g_autoptr (EphyHistoryService) service = ensure_empty_history (test_db_filename ());
+  g_autolist (EphyHistoryPageVisit) visits = NULL;
+  const gint64 now = g_get_real_time ();
+  const gint64 day = (gint64)G_USEC_PER_SEC * 86400;
+
+  /* Three week-old visits to two pages on one site score 1.5 together. */
+  visits = g_list_prepend (visits, ephy_history_page_visit_new ("https://grouped.test/a", now - 7 * day, EPHY_PAGE_VISIT_LINK));
+  for (guint i = 0; i < 2; i++)
+    visits = g_list_prepend (visits, ephy_history_page_visit_new ("https://grouped.test/b", now - 7 * day, EPHY_PAGE_VISIT_LINK));
+  /* Score each visit, not total_visit_count times the last visit's weight. */
+  visits = g_list_prepend (visits, ephy_history_page_visit_new ("https://mixed.test/", now, EPHY_PAGE_VISIT_LINK));
+  for (guint i = 0; i < 100; i++)
+    visits = g_list_prepend (visits, ephy_history_page_visit_new ("https://mixed.test/", now - 70 * day, EPHY_PAGE_VISIT_LINK));
+  visits = g_list_prepend (visits, ephy_history_page_visit_new ("https://recent.test/", now, EPHY_PAGE_VISIT_LINK));
+  for (guint i = 0; i < 10; i++)
+    visits = g_list_prepend (visits, ephy_history_page_visit_new ("https://old.test/", now - 28 * day, EPHY_PAGE_VISIT_LINK));
+  visits = g_list_prepend (visits, ephy_history_page_visit_new ("https://weekly.test/", now - 7 * day, EPHY_PAGE_VISIT_LINK));
+  ephy_history_service_add_visits (service, visits, NULL, (GAsyncReadyCallback)frecency_visits_added_cb, loop);
+  g_main_loop_run (loop);
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -655,6 +717,7 @@ main (int   argc,
   g_test_add_func ("/embed/history/test_complex_url_query_with_time_range", test_complex_url_query_with_time_range);
   g_test_add_func ("/embed/history/test_clear", test_clear);
   g_test_add_func ("/embed/history/test_cancellation", test_cancellation);
+  g_test_add_func ("/embed/history/test_frecency", test_frecency);
 
   ret = g_test_run ();
 

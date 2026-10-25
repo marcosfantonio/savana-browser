@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="base" x2="1" y2=".6"><stop stop-color="#403f3c"/><stop offset="1" stop-color="#343c3a"/></linearGradient>
+    <linearGradient id="orange" x2=".8" y2="1"><stop stop-color="#794728"/><stop offset="1" stop-color="#6c3625"/></linearGradient>
+    <linearGradient id="gold" x2="1" y2=".5"><stop stop-color="#71562b"/><stop offset=".6" stop-color="#5e401e"/><stop offset="1" stop-color="#50371c"/></linearGradient>
+    <linearGradient id="blue"><stop stop-color="#283c48"/><stop offset=".2" stop-color="#3d5662"/><stop offset="1" stop-color="#4b6975"/></linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="16"/></filter>
+  </defs>
+  <rect width="1600" height="1100" fill="url(#base)"/>
+  <path d="M0 0H1360L0 390Z" fill="url(#orange)"/>
+  <path d="M1130-80h410L690 1180H-80Z" fill="url(#gold)"/>
+  <path d="M1390-80h300v1260H760Z" fill="#2c373b" opacity=".3" filter="url(#soft)"/>
+  <path d="M1410-80h280v1260H810Z" fill="url(#blue)"/>
+</svg>

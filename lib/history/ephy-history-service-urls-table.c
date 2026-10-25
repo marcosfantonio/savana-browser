@@ -20,6 +20,8 @@
 
 #include "config.h"
 
+#include <math.h>
+
 #include "ephy-history-service-private.h"
 #include "ephy-history-service.h"
 
@@ -220,6 +222,88 @@ create_url_from_statement (EphySQLiteStatement *statement)
   return url;
 }
 
+static gint
+compare_frecency (gconstpointer a,
+                   gconstpointer b,
+                   gpointer data)
+{
+  const EphyHistoryURL *first = a;
+  const EphyHistoryURL *second = b;
+  double *first_score = g_hash_table_lookup (data, GINT_TO_POINTER (first->host->id));
+  double *second_score = g_hash_table_lookup (data, GINT_TO_POINTER (second->host->id));
+  double difference = (second_score ? *second_score : 0) - (first_score ? *first_score : 0);
+
+  if (difference != 0)
+    return difference > 0 ? 1 : -1;
+  if (first->last_visit_time != second->last_visit_time)
+    return first->last_visit_time > second->last_visit_time ? -1 : 1;
+  return g_strcmp0 (first->url, second->url);
+}
+
+/* Sum each individual visit's weight, grouped by site rather than by page.
+ * Work on the history thread and stream visits to avoid loading them all. */
+static GList *
+rank_sites_by_frecency (EphyHistoryService *self,
+                        GList *urls,
+                        guint limit)
+{
+  g_autoptr (GHashTable) urls_by_id = g_hash_table_new (g_direct_hash, g_direct_equal);
+  g_autoptr (GHashTable) scores = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, g_free);
+  g_autoptr (GHashTable) seen = g_hash_table_new (g_direct_hash, g_direct_equal);
+  g_autoptr (EphySQLiteStatement) statement = NULL;
+  g_autoptr (GError) error = NULL;
+  const double lambda = log (2.0) / 7.0;
+  const gint64 now = g_get_real_time ();
+  GList *ranked = NULL;
+  guint count = 0;
+
+  for (GList *l = urls; l; l = l->next) {
+    EphyHistoryURL *url = l->data;
+    g_hash_table_insert (urls_by_id, GINT_TO_POINTER (url->id), url);
+  }
+
+  statement = ephy_sqlite_connection_create_statement (self->history_database,
+                                                       "SELECT url, visit_time FROM visits",
+                                                       EPHY_SQLITE_STATEMENT_SHORT_LIVED, &error);
+  if (statement) {
+    while (ephy_sqlite_statement_step (statement, &error)) {
+      EphyHistoryURL *url = g_hash_table_lookup (urls_by_id, GINT_TO_POINTER (ephy_sqlite_statement_get_column_as_int (statement, 0)));
+      double days;
+      double *score;
+
+      if (!url)
+        continue;
+      days = MAX (0.0, (double)(now - ephy_sqlite_statement_get_column_as_int64 (statement, 1)) / G_USEC_PER_SEC / 86400.0);
+      score = g_hash_table_lookup (scores, GINT_TO_POINTER (url->host->id));
+      if (!score) {
+        score = g_new0 (double, 1);
+        g_hash_table_insert (scores, GINT_TO_POINTER (url->host->id), score);
+      }
+      *score += exp (-lambda * days);
+    }
+  }
+  if (error) {
+    g_warning ("Failed to rank history visits: %s", error->message);
+    ephy_history_url_list_free (urls);
+    return NULL;
+  }
+
+  urls = g_list_sort_with_data (urls, compare_frecency, scores);
+  for (GList *l = urls; l; l = l->next) {
+    EphyHistoryURL *url = l->data;
+    gpointer host = GINT_TO_POINTER (url->host->id);
+
+    if ((!limit || count < limit) && g_hash_table_add (seen, host)) {
+      ranked = g_list_prepend (ranked, url);
+      count++;
+    } else {
+      ephy_history_url_free (url);
+    }
+  }
+  g_list_free (urls);
+  return g_list_reverse (ranked);
+}
+
 GList *
 ephy_history_service_find_url_rows (EphyHistoryService *self,
                                     EphyHistoryQuery   *query)
@@ -300,12 +384,14 @@ ephy_history_service_find_url_rows (EphyHistoryService *self,
     case EPHY_HISTORY_SORT_URL_DESCENDING:
       statement_str = g_string_append (statement_str, "ORDER BY LOWER(urls.url) DESC ");
       break;
+    case EPHY_HISTORY_SORT_FRECENCY:
+      break;
     case EPHY_HISTORY_SORT_NONE:
     default:
       g_warning ("We don't support this sorting method yet.");
   }
 
-  if (query->limit) {
+  if (query->limit && query->sort_type != EPHY_HISTORY_SORT_FRECENCY) {
     statement_str = g_string_append (statement_str, "LIMIT ? ");
   }
 
@@ -364,7 +450,7 @@ ephy_history_service_find_url_rows (EphyHistoryService *self,
     g_free (string);
   }
 
-  if (query->limit)
+  if (query->limit && query->sort_type != EPHY_HISTORY_SORT_FRECENCY)
     if (!ephy_sqlite_statement_bind_int (statement, i++, query->limit, &error)) {
       g_warning ("Could not build urls table query statement: %s", error->message);
       g_error_free (error);
@@ -386,6 +472,8 @@ ephy_history_service_find_url_rows (EphyHistoryService *self,
   }
 
   g_object_unref (statement);
+  if (query->sort_type == EPHY_HISTORY_SORT_FRECENCY)
+    return rank_sites_by_frecency (self, urls, query->limit);
   return urls;
 }
 

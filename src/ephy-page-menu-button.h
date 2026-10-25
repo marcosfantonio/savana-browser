@@ -33,5 +33,6 @@ EphyPageMenuButton   *ephy_page_menu_button_new (void);
 
 void                  ephy_page_menu_button_popup          (EphyPageMenuButton *self);
 void                  ephy_page_menu_button_popdown        (EphyPageMenuButton *self);
+void                  ephy_page_menu_button_set_sidebar_mode (EphyPageMenuButton *self);
 
 G_END_DECLS

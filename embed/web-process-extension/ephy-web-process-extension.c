@@ -1203,7 +1203,8 @@ private_script_world_window_object_cleared_cb (WebKitScriptWorld       *world,
   jsc_value_object_set_property (js_ephy, "_", js_function);
   g_clear_object (&js_function);
 
-  if (g_strcmp0 (webkit_web_page_get_uri (page), "ephy-about:overview") == 0) {
+  if (g_strcmp0 (webkit_web_page_get_uri (page), "ephy-about:overview") == 0 ||
+      g_strcmp0 (webkit_web_page_get_uri (page), "ephy-about:newtab") == 0) {
     g_autoptr (JSCValue) js_overview = NULL;
     g_autoptr (JSCValue) js_overview_ctor = NULL;
     g_autoptr (JSCValue) jsc_overview_model = NULL;

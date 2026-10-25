@@ -81,6 +81,7 @@ enum {
   PASSWORD_FORM_FOCUSED,
   PASSWORD_FORM_SUBMITTED,
   AUTOFILL_SIGNAL,
+  START_PAGE_BOOKMARKS,
 
   LAST_SIGNAL
 };
@@ -1152,7 +1153,12 @@ ephy_embed_shell_class_init (EphyEmbedShellClass *klass)
                   G_TYPE_UINT64,
                   G_TYPE_UINT64,
                   G_TYPE_UINT64,
-                  G_TYPE_UINT64);
+                   G_TYPE_UINT64);
+  /* The UI owns the bookmarks manager; keep that dependency out of embed. */
+  signals[START_PAGE_BOOKMARKS] =
+    g_signal_new ("start-page-bookmarks", EPHY_TYPE_EMBED_SHELL,
+                  G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+                  G_TYPE_STRING, 0);
 }
 
 /**

@@ -17,6 +17,11 @@
 			<summary>Home page</summary>
 			<description>Address of the user’s home page.</description>
 		</key>
+		<key type="u" name="browser-color-scheme">
+			<range min="0" max="2"/>
+			<default>0</default>
+			<summary>Browser appearance: system, light, or dark</summary>
+		</key>
 		<key type="s" name="default-search-engine">
 			<default>'DuckDuckGo'</default>
 			<summary>Default search engine</summary>

@@ -5,7 +5,7 @@ template $EphyActionBarStart: Box {
 
   Box navigation_box {
     orientation: horizontal;
-    spacing: 6;
+    spacing: 0;
 
     styles [
       "navigation-box",
@@ -99,6 +99,7 @@ template $EphyActionBarStart: Box {
   }
 
   Button new_tab_button {
+    visible: false;
     action-name: "win.new-tab";
     icon-name: "tab-new-symbolic";
     tooltip-text: _("New Tab");

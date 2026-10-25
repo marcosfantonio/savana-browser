@@ -4,7 +4,8 @@ template $EphyActionBarEnd: Box {
   spacing: 6;
 
   Revealer downloads_revealer {
-    transition-type: crossfade;
+    visible: false;
+    transition-type: slide_left;
 
     MenuButton downloads_button {
       tooltip-text: _("Downloads");

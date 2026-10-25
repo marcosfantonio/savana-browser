@@ -63,6 +63,7 @@ struct _EphyDownload {
   GDateTime *start_time;
   GDateTime *end_time;
   gboolean was_moved;
+  gboolean was_opened;
 
   guint timeout_id;
 };
@@ -74,9 +75,10 @@ typedef enum {
   PROP_DESTINATION,
   PROP_ACTION,
   PROP_CONTENT_TYPE,
+  PROP_WAS_OPENED,
 } EphyDownloadProps;
 
-static GParamSpec *obj_properties[PROP_CONTENT_TYPE + 1];
+static GParamSpec *obj_properties[PROP_WAS_OPENED + 1];
 
 enum {
   FILENAME_SUGGESTED,
@@ -111,6 +113,9 @@ ephy_download_get_property (GObject    *object,
     case PROP_CONTENT_TYPE:
       g_value_set_string (value, ephy_download_get_content_type (download));
       break;
+    case PROP_WAS_OPENED:
+      g_value_set_boolean (value, download->was_opened);
+      break;
   }
 }
 
@@ -132,6 +137,7 @@ ephy_download_set_property (GObject      *object,
       break;
     case PROP_DOWNLOAD:
     case PROP_CONTENT_TYPE:
+    case PROP_WAS_OPENED:
       g_assert_not_reached ();
       break;
   }
@@ -410,6 +416,21 @@ ephy_download_failed (EphyDownload  *download,
   return FALSE;
 }
 
+gboolean
+ephy_download_get_was_opened (EphyDownload *download)
+{
+  return download->was_opened;
+}
+
+void
+ephy_download_mark_opened (EphyDownload *download)
+{
+  if (download->was_opened)
+    return;
+  download->was_opened = TRUE;
+  g_object_notify_by_pspec (G_OBJECT (download), obj_properties[PROP_WAS_OPENED]);
+}
+
 /**
  * ephy_download_do_download_action:
  * @download: an #EphyDownload
@@ -428,11 +449,13 @@ ephy_download_do_download_action (EphyDownload           *download,
   GFile *destination;
   const char *destination_path;
   gboolean ret = FALSE;
+  EphyDownloadActionType effective_action = action ? action : download->action;
+  gboolean opened = FALSE;
 
   destination_path = webkit_download_get_destination (download->download);
   destination = g_file_new_for_path (destination_path);
 
-  switch ((action ? action : download->action)) {
+  switch (effective_action) {
     case EPHY_DOWNLOAD_ACTION_BROWSE_TO:
       LOG ("ephy_download_do_download_action: browse_to");
       ret = ephy_file_browse_to (destination, NULL);
@@ -440,6 +463,7 @@ ephy_download_do_download_action (EphyDownload           *download,
     case EPHY_DOWNLOAD_ACTION_OPEN:
       LOG ("ephy_download_do_download_action: open");
       ret = ephy_file_launch_uri_handler (destination, NULL, NULL, EPHY_FILE_LAUNCH_URI_HANDLER_FILE);
+      opened = ret;
       if (!ret)
         ret = ephy_file_browse_to (destination, NULL);
       break;
@@ -451,6 +475,9 @@ ephy_download_do_download_action (EphyDownload           *download,
       g_assert_not_reached ();
   }
   g_object_unref (destination);
+
+  if (opened)
+    ephy_download_mark_opened (download);
 
   return ret;
 }
@@ -538,6 +565,10 @@ ephy_download_class_init (EphyDownloadClass *klass)
                          NULL,
                          G_PARAM_READABLE |
                          G_PARAM_STATIC_STRINGS);
+
+  obj_properties[PROP_WAS_OPENED] =
+    g_param_spec_boolean ("was-opened", NULL, NULL, FALSE,
+                          G_PARAM_READABLE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (object_class, G_N_ELEMENTS (obj_properties), obj_properties);
 

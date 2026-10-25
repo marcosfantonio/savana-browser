@@ -1,0 +1,110 @@
+html {
+  color-scheme: light;
+  background: #98b4bf;
+  color: #262d30;
+  font-family: -webkit-system-font;
+}
+
+.start-page {
+  min-height: 100vh;
+  background: url("ephy-resource:///org/gnome/epiphany/page-templates/savanna-wallpaper.svg") center / cover fixed;
+  box-sizing: border-box;
+  padding: clamp(48px, 9vh, 100px) 8% 90px;
+}
+
+.start-page main { max-width: 1000px; margin: auto; }
+.start-page * { box-sizing: border-box; }
+.start-page h1 { font-size: 24px; font-weight: 650; margin: 0 0 8px; }
+.start-page h2 { font-size: 25px; font-weight: 750; letter-spacing: -.8px; margin: 0 0 22px; }
+.start-page section + section { margin-top: 50px; }
+.start-page a { color: inherit; text-decoration: none; }
+.start-page a:focus-visible, .start-page button:focus-visible, .start-page summary:focus-visible { outline: 3px solid #3478f6; outline-offset: 5px; }
+
+.welcome-card {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: 20px;
+  padding: 30px;
+  border: 1px solid #ffffffb3;
+  border-radius: 22px;
+  background: #f8fbfbd9;
+  box-shadow: 0 8px 30px #213c4b0a;
+  backdrop-filter: blur(24px);
+}
+.welcome-card p { color: #687176; line-height: 1.5; margin: 0; }
+.welcome-card form { display: flex; grid-column: 1 / -1; border: 1px solid #a8b7c14d; border-radius: 12px; background: #ffffffa8; }
+.welcome-card input { flex: 1; min-width: 0; padding: 14px 16px; color: #283b48; background: none; border: none; font: inherit; border-radius: inherit; }
+.welcome-card button { color: #316ed5; background: none; border: none; border-radius: 12px; padding: 0 18px; font-size: 24px; cursor: pointer; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+.favorites { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 24px; }
+.favorite { display: flex; flex-direction: column; align-items: center; gap: 11px; text-align: center; font-size: 14px; }
+.tile { width: 100%; max-width: 100px; aspect-ratio: 1; border-radius: 20px; background: linear-gradient(145deg, #fff, #eaece8); box-shadow: 0 2px 5px #34454912, inset 0 1px #ffffffa6; display: grid; place-items: center; font-size: 72px; font-weight: 700; transition: transform .15s; }
+.favorite:hover .tile { transform: translateY(-4px); }
+
+.suggestion-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.suggestion-card { border-radius: 16px; overflow: hidden; background: #f4f7f6dd; box-shadow: 0 2px 8px #22334412; transition: transform .15s; }
+.suggestion-card:hover { transform: translateY(-3px); }
+.suggestion-card > span { height: 140px; display: grid; place-items: center; font-size: 110px; }
+.suggestion-card > div { padding: 18px; }
+.suggestion-card strong { display: block; font-size: 14px; }
+.suggestion-card small { display: block; color: #65717a; margin-top: 8px; }
+
+.start-page #overview { padding: 0; margin: 0; display: block; }
+.start-page #most-visited-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding: 0; margin: 0; }
+.start-page .overview-item { width: auto; margin: 0; padding: 0; border-radius: 15px; overflow: hidden; background: #f7faf8b8; position: relative; }
+.start-page .overview-item:not([href]) { display: none; }
+.start-page .overview-thumbnail { width: 100%; height: 140px; border: none; border-radius: 0; box-shadow: none; background-color: #ffffff80; }
+.start-page .overview-title { display: block; width: auto; color: #303a40; padding: 12px; margin: 0; text-align: start; }
+.history-section:has(.overview-item[href]) .empty-history { display: none; }
+
+.customize { position: fixed; right: 22px; bottom: 20px; z-index: 10; }
+.customize summary { list-style: none; cursor: pointer; padding: 8px 20px; background: #6c747485; color: white; border: 1px solid #ffffff33; border-radius: 999px; backdrop-filter: blur(15px); }
+.customize summary::-webkit-details-marker { display: none; }
+.customize-panel { position: absolute; bottom: 46px; right: 0; width: 260px; display: grid; gap: 16px; padding: 22px; background: #f8faf5f0; border: 1px solid #ffffffa6; border-radius: 18px; box-shadow: 0 6px 28px #13263633; backdrop-filter: blur(25px); }
+.customize-panel label { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.customize-panel input { accent-color: #3478f6; }
+body:has(#show-favorites:not(:checked)) .favorites-section,
+body:has(#show-suggestions:not(:checked)) .suggestions-section,
+body:has(#show-history:not(:checked)) .history-section { display: none; }
+body:has(#show-wallpaper:not(:checked)) { background: #e4e9e9; }
+
+@media (max-width: 800px) {
+  .start-page { padding-left: 6%; padding-right: 6%; }
+  .favorites { gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .suggestion-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .start-page #most-visited-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .welcome-card { grid-template-columns: 1fr; padding: 22px; }
+  .favorites { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tile { max-width: 80px; font-size: 58px; }
+  .suggestion-cards, .start-page #most-visited-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .start-page * { transition: none !important; } }
+
+/* Colors match the charcoal toolbar in dark.png. */
+html[data-theme="dark"] { color-scheme: dark; color: #ebebeb; background: #252525; }
+html[data-theme="dark"] .start-page { background: url("ephy-resource:///org/gnome/epiphany/page-templates/savanna-wallpaper-dark.svg") center / cover fixed; color: #ebebeb; }
+html[data-theme="dark"] .welcome-card { background: #303030e8; border-color: #4b4b4b; box-shadow: 0 8px 30px #0002; }
+html[data-theme="dark"] .welcome-card p,
+html[data-theme="dark"] .empty-state { color: #b4b4b4; }
+html[data-theme="dark"] .welcome-card form { background: #3b3b3b; border-color: #525252; }
+html[data-theme="dark"] .welcome-card input { color: #f1f1f1; }
+html[data-theme="dark"] .welcome-card button { color: #90b8fa; }
+html[data-theme="dark"] .user-favorite { background: linear-gradient(145deg, #4a4a4a, #363636); color: #ddd; box-shadow: inset 0 1px #ffffff12, 0 2px 5px #0002; }
+html[data-theme="dark"] .suggestion-card,
+html[data-theme="dark"] .overview-item { background: #353535; color: #eee; }
+html[data-theme="dark"] .user-suggestion > span { background: #414141; color: #aaa; }
+html[data-theme="dark"] .suggestion-card small { color: #bbb; }
+html[data-theme="dark"] .overview-title { color: #eee; }
+html[data-theme="dark"] .customize-panel { background: #303030f2; border-color: #555; color: #eee; }
+html[data-theme="dark"] body:has(#show-wallpaper:not(:checked)) { background: #252525; }
+.start-logo { border-radius: 16px; }
+.user-favorite { font-family: inherit; font-size: 2.6em; color: #765339; background: linear-gradient(135deg, #f6e5bd, #d7b38c); }
+.user-suggestion > span { background: linear-gradient(135deg, #c7deeb, #e7e6d6); color: #637b89; font-size: 3em; }
+.empty-state { grid-column: 1 / -1; color: #626b70; line-height: 1.6; }
+.favorite > span:last-child { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggestion-card strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.welcome-card input, .welcome-card button, .customize { font-family: inherit; }

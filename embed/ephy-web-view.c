@@ -2480,7 +2480,12 @@ reader_setting_changed_cb (EphyWebView *web_view)
   const gchar *color_scheme;
   gchar *js_snippet;
 
-  if (!g_str_has_prefix (web_view->address, EPHY_READER_SCHEME))
+  if (ephy_web_view_is_overview (web_view) || ephy_web_view_is_newtab (web_view)) {
+    webkit_web_view_reload (WEBKIT_WEB_VIEW (web_view));
+    return;
+  }
+
+  if (!web_view->address || !g_str_has_prefix (web_view->address, EPHY_READER_SCHEME))
     return;
 
   font_style = enum_nick (EPHY_TYPE_PREFS_READER_FONT_STYLE,

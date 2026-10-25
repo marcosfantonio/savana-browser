@@ -37,6 +37,7 @@ template $EphyWindow: Adw.ApplicationWindow {
 
     setters {
       template.adaptive-mode: EPHY_ADAPTIVE_MODE_NARROW;
+      navigation_split_view.collapsed: true;
     }
   }
 
@@ -53,7 +54,18 @@ template $EphyWindow: Adw.ApplicationWindow {
       notify::open => $notify_overview_open_cb() swapped;
       create-tab => $create_tab_cb() swapped;
 
-      child: $EphyFullscreenBox fullscreen_box {};
+      child: $EphyFullscreenBox fullscreen_box {
+        content: Adw.OverlaySplitView navigation_split_view {
+          styles ["savanna-navigation"]
+          min-sidebar-width: 210;
+          max-sidebar-width: 280;
+          sidebar-width-fraction: 0.23;
+          collapsed: false;
+          show-sidebar: false;
+          sidebar-position: start;
+
+        };
+      };
     };
 
     sidebar: $EphyBookmarksDialog bookmarks_dialog {};

@@ -33,7 +33,7 @@ iso_codes = dependency('iso-codes')
 iso_codes_prefix = iso_codes.get_variable(pkgconfig: 'prefix')
 
 profile = get_option('profile')
-application_id = 'org.gnome.Epiphany'
+application_id = 'com.savanna.Browser'
 
 if profile != ''
   application_id = 'org.gnome.Epiphany.' + profile

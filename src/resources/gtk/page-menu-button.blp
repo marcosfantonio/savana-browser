@@ -2,9 +2,22 @@ using Gtk 4.0;
 using Adw 1;
 
 template $EphyPageMenuButton: Adw.Bin {
-  child: MenuButton menu_button {
-    icon-name: "open-menu-symbolic";
-    tooltip-text: _("Main Menu");
+  child: Stack menu_stack {
+    StackPage {
+      name: "menu";
+      child: MenuButton menu_button {
+        icon-name: "open-menu-symbolic";
+        tooltip-text: _("Main Menu");
+      };
+    }
+    StackPage {
+      name: "sidebar";
+      child: Button {
+        icon-name: "savanna-sidebar-symbolic";
+        tooltip-text: _("Show Sidebar");
+        action-name: "win.toggle-sidebar";
+      };
+    }
   };
 }
 
@@ -41,6 +54,16 @@ menu page_menu {
   }
 
   section {
+    item {
+      label: _("_Bookmarks");
+      action: "win.bookmarks";
+    }
+
+    item {
+      label: _("Downloads");
+      action: "win.show-downloads";
+    }
+
     item {
       label: _("Histo_ry");
       action: "app.history";

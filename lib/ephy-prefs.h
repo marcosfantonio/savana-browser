@@ -152,6 +152,7 @@ static const char * const ephy_prefs_web_schema[] = {
 
 #define EPHY_PREFS_SCHEMA                             "org.gnome.Epiphany"
 #define EPHY_PREFS_HOMEPAGE_URL                       "homepage-url"
+#define EPHY_PREFS_BROWSER_COLOR_SCHEME               "browser-color-scheme"
 #define EPHY_PREFS_NEW_WINDOWS_IN_TABS                "new-windows-in-tabs"
 #define EPHY_PREFS_WARN_ON_CLOSE_UNSUBMITTED_DATA     "warn-on-close-unsubmitted-data"
 #define EPHY_PREFS_ENABLE_CARET_BROWSING              "enable-caret-browsing"

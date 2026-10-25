@@ -4,6 +4,9 @@ using Adw 1;
 template $EphyHeaderBar: Adw.Bin {
   child: Adw.HeaderBar header_bar {
     [start]
+    $EphyPageMenuButton page_menu_button {}
+
+    [start]
     $EphyActionBarStart action_bar_start {}
 
     title-widget: Adw.Bin event_box {};
@@ -17,9 +20,30 @@ template $EphyHeaderBar: Adw.Bin {
     }
 
     [end]
-    $EphyPageMenuButton page_menu_button {}
+    Box {
+      valign: center;
+      styles ["savanna-controls"]
 
-    [end]
-    $EphyActionBarEnd action_bar_end {}
+      $EphyActionBarEnd action_bar_end {}
+
+      Button share_button {
+        icon-name: "savanna-share-symbolic";
+        tooltip-text: _("Copy Page Address");
+        clicked => $share_button_clicked_cb();
+      }
+
+      Button new_tab_button {
+        icon-name: "list-add-symbolic";
+        action-name: "win.new-tab";
+        tooltip-text: _("New Tab");
+      }
+
+      Button tabs_button {
+        icon-name: "savanna-tabs-symbolic";
+        action-name: "win.tabs-view";
+        tooltip-text: _("View Open Tabs");
+      }
+    }
+
   };
 }

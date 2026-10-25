@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light" style="<!--SYSTEM_FONT-->">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Nova aba</title>
+  <link rel="stylesheet" href="ephy-resource:///org/gnome/epiphany/page-templates/about.css">
+  <link rel="stylesheet" href="ephy-resource:///org/gnome/epiphany/page-templates/start-page.css">
+  <script defer src="ephy-resource:///org/gnome/epiphany/page-templates/start-page.js"></script>
+</head>
+<body class="start-page">
+  <main>
+    <section class="welcome-card" aria-labelledby="welcome-title">
+      <img class="start-logo" width="64" height="64" src="ephy-resource:///org/gnome/epiphany/page-templates/logo.svg" alt="Savanna">
+      <div>
+        <h1 id="welcome-title">Seu espaço para explorar.</h1>
+        <p>Seus favoritos e descobertas, escolhidos a partir da sua navegação.</p>
+      </div>
+      <form action="https://www.google.com/search" method="get" role="search">
+        <label class="visually-hidden" for="search">Pesquisar na web</label>
+        <input id="search" name="q" type="search" placeholder="Pesquisar na web" required>
+        <button type="submit" aria-label="Pesquisar">↗</button>
+      </form>
+    </section>
+
+    <section class="favorites-section" aria-labelledby="favorites-title">
+      <h2 id="favorites-title">Favoritos</h2>
+      <div class="favorites"><!--FAVORITES--></div>
+    </section>
+
+    <section class="suggestions-section" aria-labelledby="suggestions-title">
+      <h2 id="suggestions-title">Sugestões para você</h2>
+      <div class="suggestion-cards"><!--RECOMMENDATIONS--></div>
+    </section>
+
+    <section class="history-section" aria-labelledby="history-title">
+      <h2 id="history-title">Mais visitados</h2>
+      <div id="overview"><div id="most-visited-grid"><!--SUGGESTIONS--></div></div>
+      <p class="empty-history empty-state">Comece a navegar para ver seus sites mais visitados.</p>
+    </section>
+  </main>
+  <details class="customize">
+    <summary>Editar</summary>
+    <div class="customize-panel">
+      <strong>Personalizar página inicial</strong>
+      <label><input id="show-favorites" type="checkbox" checked> Favoritos</label>
+      <label><input id="show-suggestions" type="checkbox" checked> Sugestões</label>
+      <label><input id="show-history" type="checkbox" checked> Mais visitados</label>
+      <label><input id="show-wallpaper" type="checkbox" checked> Imagem de fundo</label>
+    </div>
+  </details>
+</body>
+</html>

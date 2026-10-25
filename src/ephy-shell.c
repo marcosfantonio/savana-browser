@@ -79,9 +79,9 @@ struct _EphyShell {
   gboolean checking_modified_forms;
   int num_windows_with_modified_forms;
 
-#if USE_GRANITE
   GtkStyleProvider *style_provider;
-#endif
+  GtkStyleProvider *savanna_style_provider;
+  GtkStyleProvider *savanna_palette_provider;
 
   GList *windows; /* unowned, used for assertion only */
 };
@@ -610,6 +610,135 @@ run_in_background_set_mapping (const GValue       *value,
 }
 
 static void
+start_page_bookmarks_changed_cb (EphyShell *shell)
+{
+  for (GList *w = gtk_application_get_windows (GTK_APPLICATION (shell)); w; w = w->next) {
+    g_autoptr (GList) embeds = NULL;
+
+    if (!EPHY_IS_WINDOW (w->data))
+      continue;
+    embeds = ephy_embed_container_get_children (EPHY_EMBED_CONTAINER (w->data));
+    for (GList *l = embeds; l; l = l->next) {
+      EphyWebView *view = ephy_embed_get_web_view (l->data);
+      if (ephy_web_view_is_overview (view) || ephy_web_view_is_newtab (view))
+        webkit_web_view_reload (WEBKIT_WEB_VIEW (view));
+    }
+  }
+}
+
+static char *
+start_page_bookmarks_cb (EphyShell *shell)
+{
+  GSequence *bookmarks = ephy_bookmarks_manager_get_bookmarks (ephy_shell_get_bookmarks_manager (shell));
+  GString *html = g_string_new (NULL);
+
+  for (GSequenceIter *iter = g_sequence_get_begin_iter (bookmarks);
+       !g_sequence_iter_is_end (iter); iter = g_sequence_iter_next (iter)) {
+    EphyBookmark *bookmark = g_sequence_get (iter);
+    const char *url = ephy_bookmark_get_url (bookmark);
+    const char *title = ephy_bookmark_get_title (bookmark);
+    g_autofree char *escaped_url = NULL;
+    g_autofree char *escaped_title = NULL;
+    g_autofree char *initial = NULL;
+    g_autofree char *escaped_initial = NULL;
+
+    if (!g_str_has_prefix (url, "https://") && !g_str_has_prefix (url, "http://"))
+      continue;
+    if (!title || !*title)
+      title = url;
+    escaped_url = g_markup_escape_text (url, -1);
+    escaped_title = g_markup_escape_text (title, -1);
+    initial = g_utf8_substring (title, 0, 1);
+    escaped_initial = g_markup_escape_text (initial, -1);
+    g_string_append_printf (html, "<a class=\"favorite\" href=\"%s\" title=\"%s\"><span class=\"tile user-favorite\" aria-hidden=\"true\">%s</span><span>%s</span></a>",
+                            escaped_url, escaped_title, escaped_initial, escaped_title);
+  }
+  if (!html->len)
+    g_string_append (html, "<p class=\"empty-state\">Adicione favoritos pelo menu do site para vê-los aqui.</p>");
+  return g_string_free (html, FALSE);
+}
+
+static void
+apply_window_appearance (GtkApplication *application,
+                          GtkWindow *window,
+                          EphyShell *shell)
+{
+  gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-surface");
+  if (adw_style_manager_get_dark (adw_style_manager_get_default ()))
+    gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-dark");
+  else
+    gtk_widget_remove_css_class (GTK_WIDGET (window), "savanna-dark");
+}
+
+static void
+sync_savanna_palette (AdwStyleManager *manager,
+                       GParamSpec *pspec,
+                       EphyShell *shell)
+{
+  const gboolean dark = adw_style_manager_get_dark (manager);
+  const struct { const char *name; const char *light; const char *dark; } colors[] = {
+    { "window_bg_color", "#f5f6f5", "#252525" },
+    { "window_fg_color", "#262b30", "#eeeeee" },
+    { "view_bg_color", "#ffffff", "#2c2c2c" },
+    { "view_fg_color", "#262b30", "#eeeeee" },
+    { "headerbar_bg_color", "#f1f3f2", "#292929" },
+    { "headerbar_fg_color", "#262b30", "#eeeeee" },
+    { "card_bg_color", "#ffffff", "#353535" },
+    { "card_fg_color", "#262b30", "#eeeeee" },
+    { "popover_bg_color", "#f9faf9", "#303030" },
+    { "popover_fg_color", "#262b30", "#eeeeee" },
+    { "dialog_bg_color", "#f5f6f5", "#303030" },
+    { "dialog_fg_color", "#262b30", "#eeeeee" },
+    { "sidebar_bg_color", "#edf1ef", "#292929" },
+    { "sidebar_fg_color", "#262b30", "#eeeeee" },
+    { "secondary_sidebar_bg_color", "#f1f3f2", "#303030" },
+    { "secondary_sidebar_fg_color", "#262b30", "#eeeeee" },
+    { "theme_bg_color", "#f5f6f5", "#252525" },
+    { "theme_fg_color", "#262b30", "#eeeeee" },
+    { "theme_base_color", "#ffffff", "#2c2c2c" },
+    { "theme_text_color", "#262b30", "#eeeeee" },
+    { "borders", "rgba(0,0,0,.13)", "rgba(255,255,255,.13)" },
+  };
+  g_autoptr (GString) css = g_string_new (NULL);
+
+  /* User GTK styles may hard-code a dark palette. Override colors inside this
+   * application only, without changing its fonts or native window controls. */
+  for (guint i = 0; i < G_N_ELEMENTS (colors); i++)
+    g_string_append_printf (css, "@define-color %s %s;\n", colors[i].name, dark ? colors[i].dark : colors[i].light);
+  g_string_append (css, ".savanna-surface {\n");
+  for (guint i = 0; i < G_N_ELEMENTS (colors); i++) {
+    g_autofree char *name = g_strdup (colors[i].name);
+    g_strdelimit (name, "_", '-');
+    g_string_append_printf (css, "--%s: %s;\n", name, dark ? colors[i].dark : colors[i].light);
+  }
+  g_string_append (css,
+    "color: var(--window-fg-color); background-color: var(--window-bg-color); }\n"
+    ".savanna-surface .background { background: var(--window-bg-color); color: var(--window-fg-color); }\n"
+    ".savanna-surface headerbar { background: var(--headerbar-bg-color); color: var(--headerbar-fg-color); }\n"
+    ".savanna-surface popover > contents { background: var(--popover-bg-color); color: var(--popover-fg-color); }\n"
+    ".savanna-surface list, .savanna-surface listview, .savanna-surface .view { background: var(--view-bg-color); color: var(--view-fg-color); }\n"
+    ".savanna-surface list > row, .savanna-surface listview > row { background-color: transparent; color: inherit; }\n"
+    ".savanna-surface .boxed-list > row { background: var(--card-bg-color); color: var(--card-fg-color); }\n"
+    ".savanna-surface entry, .savanna-surface textview { background: var(--view-bg-color); color: var(--view-fg-color); }\n");
+  gtk_css_provider_load_from_string (GTK_CSS_PROVIDER (shell->savanna_palette_provider), css->str);
+  for (GList *l = gtk_application_get_windows (GTK_APPLICATION (shell)); l; l = l->next)
+    apply_window_appearance (GTK_APPLICATION (shell), l->data, shell);
+}
+
+static void
+browser_color_scheme_changed_cb (GSettings *settings,
+                                 const char *key,
+                                 EphyShell *shell)
+{
+  static const AdwColorScheme schemes[] = {
+    ADW_COLOR_SCHEME_DEFAULT, ADW_COLOR_SCHEME_FORCE_LIGHT, ADW_COLOR_SCHEME_FORCE_DARK
+  };
+  guint selected = g_settings_get_uint (settings, EPHY_PREFS_BROWSER_COLOR_SCHEME);
+
+  adw_style_manager_set_color_scheme (adw_style_manager_get_default (), schemes[MIN (selected, 2)]);
+}
+
+static void
 ephy_shell_startup (GApplication *application)
 {
   EphyEmbedShell *embed_shell = EPHY_EMBED_SHELL (application);
@@ -626,6 +755,13 @@ ephy_shell_startup (GApplication *application)
 #endif
 
   G_APPLICATION_CLASS (ephy_shell_parent_class)->startup (application);
+
+  browser_color_scheme_changed_cb (EPHY_SETTINGS_MAIN, NULL, shell);
+  g_signal_connect (shell, "start-page-bookmarks", G_CALLBACK (start_page_bookmarks_cb), NULL);
+  g_signal_connect_object (gtk_settings_get_default (), "notify::gtk-font-name",
+                           G_CALLBACK (start_page_bookmarks_changed_cb), shell, G_CONNECT_SWAPPED);
+  g_signal_connect_object (EPHY_SETTINGS_MAIN, "changed::" EPHY_PREFS_BROWSER_COLOR_SCHEME,
+                           G_CALLBACK (browser_color_scheme_changed_cb), shell, 0);
 
 #if USE_GRANITE
   if (is_desktop_pantheon ()) {
@@ -649,12 +785,36 @@ ephy_shell_startup (GApplication *application)
     shell->style_provider = GTK_STYLE_PROVIDER (gtk_css_provider_new ());
     gtk_css_provider_load_from_resource (GTK_CSS_PROVIDER (shell->style_provider),
                                          "/org/gnome/Epiphany/style-elementary.css");
-
-    gtk_style_context_add_provider_for_display (gdk_display_get_default (),
-                                                shell->style_provider,
-                                                GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
   }
 #endif
+
+  if (!shell->style_provider) {
+    shell->style_provider = GTK_STYLE_PROVIDER (gtk_css_provider_new ());
+    gtk_css_provider_load_from_resource (GTK_CSS_PROVIDER (shell->style_provider),
+                                         "/org/gnome/Epiphany/style.css");
+  }
+
+  gtk_style_context_add_provider_for_display (gdk_display_get_default (),
+                                              shell->style_provider,
+                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+
+  /* The user's GTK CSS has higher priority than application CSS. Override it
+   * only for Savanna's toolbar, without changing the user's global theme. */
+  shell->savanna_style_provider = GTK_STYLE_PROVIDER (gtk_css_provider_new ());
+  gtk_css_provider_load_from_resource (GTK_CSS_PROVIDER (shell->savanna_style_provider),
+                                       "/org/gnome/Epiphany/savanna.css");
+  gtk_style_context_add_provider_for_display (gdk_display_get_default (),
+                                              shell->savanna_style_provider,
+                                              GTK_STYLE_PROVIDER_PRIORITY_USER + 2);
+
+  shell->savanna_palette_provider = GTK_STYLE_PROVIDER (gtk_css_provider_new ());
+  gtk_style_context_add_provider_for_display (gdk_display_get_default (),
+                                              shell->savanna_palette_provider,
+                                              GTK_STYLE_PROVIDER_PRIORITY_USER + 1);
+  g_signal_connect_object (adw_style_manager_get_default (), "notify::dark",
+                           G_CALLBACK (sync_savanna_palette), shell, 0);
+  g_signal_connect (shell, "window-added", G_CALLBACK (apply_window_appearance), shell);
+  sync_savanna_palette (adw_style_manager_get_default (), NULL, shell);
 
   /* We're not remoting; start our services */
 
@@ -1108,9 +1268,9 @@ ephy_shell_dispose (GObject *object)
 
   g_clear_slist (&shell->open_uris_idle_ids, remove_open_uris_idle_cb);
 
-#if USE_GRANITE
   g_clear_object (&shell->style_provider);
-#endif
+  g_clear_object (&shell->savanna_style_provider);
+  g_clear_object (&shell->savanna_palette_provider);
 
   G_OBJECT_CLASS (ephy_shell_parent_class)->dispose (object);
 }
@@ -1361,8 +1521,17 @@ ephy_shell_get_bookmarks_manager (EphyShell *shell)
 {
   g_assert (EPHY_IS_SHELL (shell));
 
-  if (!shell->bookmarks_manager)
+  if (!shell->bookmarks_manager) {
     shell->bookmarks_manager = ephy_bookmarks_manager_new ();
+    g_signal_connect_object (shell->bookmarks_manager, "bookmark-added",
+                             G_CALLBACK (start_page_bookmarks_changed_cb), shell, G_CONNECT_SWAPPED);
+    g_signal_connect_object (shell->bookmarks_manager, "bookmark-removed",
+                             G_CALLBACK (start_page_bookmarks_changed_cb), shell, G_CONNECT_SWAPPED);
+    g_signal_connect_object (shell->bookmarks_manager, "bookmark-title-changed",
+                             G_CALLBACK (start_page_bookmarks_changed_cb), shell, G_CONNECT_SWAPPED);
+    g_signal_connect_object (shell->bookmarks_manager, "bookmark-url-changed",
+                             G_CALLBACK (start_page_bookmarks_changed_cb), shell, G_CONNECT_SWAPPED);
+  }
 
   return shell->bookmarks_manager;
 }

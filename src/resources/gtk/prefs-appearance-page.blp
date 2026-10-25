@@ -6,6 +6,16 @@ template $PrefsAppearancePage: Adw.PreferencesPage {
   title: _("Appearance");
 
   Adw.PreferencesGroup {
+    title: _("Theme");
+    Adw.ComboRow browser_color_scheme {
+      title: _("Color Scheme");
+      model: StringList {
+        strings [_("System"), _("Light"), _("Dark")]
+      };
+    }
+  }
+
+  Adw.PreferencesGroup {
     title: _("Fonts");
 
     Adw.ExpanderRow use_gnome_fonts_row {
