@@ -28,6 +28,7 @@
 #include "ephy-bookmarks-dialog.h"
 #include "ephy-bookmarks-manager.h"
 #include "ephy-embed-container.h"
+#include "ephy-embed.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
 
@@ -37,6 +38,10 @@ struct _EphyBookmarkRow {
   EphyBookmark *bookmark;
 
   GtkWidget *favicon_image;
+  GtkWidget *url_favicon_image;
+  GtkWidget *url_label;
+  GtkWidget *description_label;
+  GtkWidget *edit_controls;
   GtkWidget *drag_handle;
   GtkWidget *remove_button;
   GtkWidget *properties_button;
@@ -253,6 +258,50 @@ ephy_bookmark_row_map (GtkWidget *widget)
   GTK_WIDGET_CLASS (ephy_bookmark_row_parent_class)->map (widget);
 
   ephy_bookmark_start_loading_icon (self->bookmark);
+
+  for (GList *w = gtk_application_get_windows (GTK_APPLICATION (ephy_shell_get_default ())); w; w = w->next) {
+    g_autoptr (GList) embeds = NULL;
+
+    if (!EPHY_IS_WINDOW (w->data))
+      continue;
+    embeds = ephy_embed_container_get_children (EPHY_EMBED_CONTAINER (w->data));
+    for (GList *l = embeds; l; l = l->next)
+      ephy_bookmark_update_from_view (self->bookmark, WEBKIT_WEB_VIEW (ephy_embed_get_web_view (l->data)));
+  }
+}
+
+static void
+update_description (EphyBookmarkRow *self)
+{
+  const char *description = ephy_bookmark_get_description (self->bookmark);
+
+  gtk_label_set_text (GTK_LABEL (self->description_label), description ? description : "");
+  gtk_widget_set_visible (self->description_label, description && *description);
+}
+
+static void
+update_url (EphyBookmarkRow *self)
+{
+  const char *url = ephy_bookmark_get_url (self->bookmark);
+  const char *display = strstr (url, "://");
+
+  gtk_label_set_text (GTK_LABEL (self->url_label), display ? display + 3 : url);
+  gtk_widget_set_tooltip_text (self->url_label, url);
+}
+
+static gboolean
+transform_bookmark_icon (GBinding     *binding,
+                         const GValue *from_value,
+                         GValue       *to_value,
+                         gpointer      user_data)
+{
+  GObject *icon = g_value_get_object (from_value);
+
+  if (icon)
+    g_value_set_object (to_value, icon);
+  else
+    g_value_take_object (to_value, g_themed_icon_new ("ephy-globe-alt2-symbolic"));
+  return TRUE;
 }
 
 static void
@@ -269,9 +318,19 @@ ephy_bookmark_row_constructed (GObject *object)
                                NULL,
                                self, NULL);
 
-  g_object_bind_property (self->bookmark, "icon",
-                          self->favicon_image, "gicon",
-                          G_BINDING_SYNC_CREATE);
+  update_url (self);
+  update_description (self);
+  g_signal_connect_object (self->bookmark, "notify::bmkUri", G_CALLBACK (update_url), self, G_CONNECT_SWAPPED);
+  g_signal_connect_object (self->bookmark, "notify::description", G_CALLBACK (update_description), self, G_CONNECT_SWAPPED);
+
+  g_object_bind_property_full (self->bookmark, "icon",
+                               self->favicon_image, "gicon",
+                               G_BINDING_SYNC_CREATE,
+                               transform_bookmark_icon, NULL, NULL, NULL);
+  g_object_bind_property_full (self->bookmark, "icon",
+                               self->url_favicon_image, "gicon",
+                               G_BINDING_SYNC_CREATE,
+                               transform_bookmark_icon, NULL, NULL, NULL);
 
   g_signal_connect_object (self->bookmark,
                            "notify::title",
@@ -330,6 +389,10 @@ ephy_bookmark_row_class_init (EphyBookmarkRowClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/epiphany/gtk/bookmark-row.ui");
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkRow, favicon_image);
+  gtk_widget_class_bind_template_child (widget_class, EphyBookmarkRow, url_favicon_image);
+  gtk_widget_class_bind_template_child (widget_class, EphyBookmarkRow, url_label);
+  gtk_widget_class_bind_template_child (widget_class, EphyBookmarkRow, description_label);
+  gtk_widget_class_bind_template_child (widget_class, EphyBookmarkRow, edit_controls);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkRow, drag_handle);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkRow, remove_button);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkRow, properties_button);
@@ -394,6 +457,14 @@ ephy_bookmark_row_get_bookmark_url (EphyBookmarkRow *self)
   g_assert (EPHY_IS_BOOKMARK_ROW (self));
 
   return ephy_bookmark_get_url (self->bookmark);
+}
+
+void
+ephy_bookmark_row_set_is_editing (EphyBookmarkRow *self,
+                                  gboolean         is_editing)
+{
+  gtk_widget_set_visible (self->drag_handle, is_editing);
+  gtk_widget_set_visible (self->edit_controls, is_editing);
 }
 
 void

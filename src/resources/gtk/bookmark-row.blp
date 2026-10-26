@@ -17,59 +17,98 @@ menu move_menu {
 
 template $EphyBookmarkRow: Adw.ActionRow {
   title-lines: 1;
+  subtitle-lines: 2;
   use-markup: false;
   activatable: true;
 
-  [prefix]
-  Image favicon_image {
-    margin-start: 6;
-    pixel-size: 16;
-  }
+  styles ["savanna-bookmark-row"]
 
-  [prefix]
-  Image drag_handle {
-    icon-name: "list-drag-handle-symbolic";
+  child: Box {
+    spacing: 10;
+    margin-top: 10;
+    margin-bottom: 10;
 
-    DragSource {
-      actions: move;
-      prepare => $drag_prepare_cb() swapped;
-      drag-begin => $drag_begin_cb() swapped;
+    Image drag_handle {
+      icon-name: "list-drag-handle-symbolic";
+
+      DragSource {
+        actions: move;
+        prepare => $drag_prepare_cb() swapped;
+        drag-begin => $drag_begin_cb() swapped;
+      }
     }
-  }
 
-  [suffix]
-  Button remove_button {
-    icon-name: "user-trash-symbolic";
-    receives-default: false;
-    tooltip-text: _("Remove");
-    valign: center;
+    Image favicon_image {
+      pixel-size: 48;
+      valign: start;
+    }
 
-    styles [
-      "flat",
-    ]
-  }
+    Box {
+      orientation: vertical;
+      spacing: 4;
+      hexpand: true;
 
-  [suffix]
-  Button properties_button {
-    icon-name: "document-edit-symbolic";
-    receives-default: false;
-    valign: center;
+      Label title_label {
+        label: bind template.title;
+        xalign: 0;
+        ellipsize: end;
+        styles ["heading"]
+      }
 
-    styles [
-      "flat",
-    ]
-  }
+      Box {
+        spacing: 4;
 
-  [suffix]
-  MenuButton move_menu_button {
-    icon-name: "view-more-symbolic";
-    receives-default: false;
-    tooltip-text: _("Move Controls");
-    valign: center;
-    menu-model: move_menu;
+        Image url_favicon_image {
+          pixel-size: 16;
+        }
 
-    styles [
-      "flat",
-    ]
-  }
+        Label url_label {
+          xalign: 0;
+          ellipsize: end;
+          hexpand: true;
+          styles ["caption"]
+        }
+      }
+
+      Label description_label {
+        xalign: 0;
+        wrap: true;
+        wrap-mode: word_char;
+        lines: 2;
+        ellipsize: end;
+        styles ["dim-label", "caption"]
+      }
+    }
+
+    Box edit_controls {
+      valign: center;
+
+      Button remove_button {
+        icon-name: "user-trash-symbolic";
+        receives-default: false;
+        tooltip-text: _("Remove");
+        valign: center;
+
+        styles ["flat"]
+      }
+
+      Button properties_button {
+        icon-name: "document-edit-symbolic";
+        receives-default: false;
+        valign: center;
+
+        styles ["flat"]
+      }
+
+      MenuButton move_menu_button {
+        icon-name: "view-more-symbolic";
+        receives-default: false;
+        tooltip-text: _("Move Controls");
+        valign: center;
+        menu-model: move_menu;
+
+        styles ["flat"]
+      }
+    }
+  };
 }

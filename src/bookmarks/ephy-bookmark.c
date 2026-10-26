@@ -26,6 +26,7 @@
 
 #include "ephy-bookmarks-manager.h"
 #include "ephy-embed-shell.h"
+#include "ephy-file-helpers.h"
 #include "ephy-shell.h"
 #include "ephy-sync-utils.h"
 #include "ephy-synchronizable.h"
@@ -40,6 +41,7 @@ struct _EphyBookmark {
 
   char *url;
   char *title;
+  char *description;
   GSequence *tags;
   gint64 time_added;
 
@@ -68,6 +70,7 @@ G_DEFINE_FINAL_TYPE_WITH_CODE (EphyBookmark, ephy_bookmark, G_TYPE_OBJECT,
 typedef enum {
   PROP_TIME_ADDED = 1,  /* Epiphany */
   PROP_ICON,            /* Epiphany */
+  PROP_DESCRIPTION,     /* Savanna local metadata, not synced */
   PROP_ID,              /* Firefox Sync */
   PROP_TITLE,           /* Epiphany && Firefox Sync */
   PROP_BMK_URI,         /* Epiphany && Firefox Sync */
@@ -100,6 +103,7 @@ ephy_bookmark_set_property (GObject      *object,
       ephy_bookmark_set_time_added (self, g_value_get_int64 (value));
       break;
     case PROP_ICON:
+    case PROP_DESCRIPTION:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
     case PROP_TITLE:
@@ -150,6 +154,9 @@ ephy_bookmark_get_property (GObject    *object,
     case PROP_ICON:
       g_value_set_object (value, ephy_bookmark_get_icon (self));
       break;
+    case PROP_DESCRIPTION:
+      g_value_set_string (value, self->description);
+      break;
     case PROP_TITLE:
       g_value_set_string (value, ephy_bookmark_get_title (self));
       break;
@@ -199,6 +206,7 @@ ephy_bookmark_finalize (GObject *object)
 
   g_free (self->url);
   g_free (self->title);
+  g_free (self->description);
 
   g_sequence_free (self->tags);
 
@@ -232,6 +240,10 @@ ephy_bookmark_class_init (EphyBookmarkClass *klass)
     g_param_spec_object ("icon",
                          NULL, NULL,
                          G_TYPE_ICON,
+                          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+  obj_properties[PROP_DESCRIPTION] =
+    g_param_spec_string ("description", NULL, NULL, NULL,
                          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
   obj_properties[PROP_ID] =
@@ -407,6 +419,71 @@ ephy_bookmark_get_icon (EphyBookmark *self)
   return G_ICON (self->icon);
 }
 
+static char *
+description_path (const char *url)
+{
+  g_autofree char *hash = g_compute_checksum_for_string (G_CHECKSUM_SHA256, url, -1);
+
+  return g_build_filename (ephy_cache_dir (), "savanna-bookmark-descriptions", hash, NULL);
+}
+
+const char *
+ephy_bookmark_get_description (EphyBookmark *self)
+{
+  return self->description;
+}
+
+static void
+description_ready_cb (GObject      *source,
+                      GAsyncResult *result,
+                      gpointer      user_data)
+{
+  g_autoptr (EphyBookmark) self = user_data;
+  g_autoptr (JSCValue) value = webkit_web_view_evaluate_javascript_finish (WEBKIT_WEB_VIEW (source), result, NULL);
+  g_autoptr (JsonParser) parser = json_parser_new ();
+  g_autofree char *json = NULL;
+  JsonObject *metadata;
+  const char *description;
+
+  if (!value || !jsc_value_is_string (value))
+    return;
+  json = jsc_value_to_string (value);
+  if (!json_parser_load_from_data (parser, json, -1, NULL) ||
+      !JSON_NODE_HOLDS_OBJECT (json_parser_get_root (parser)))
+    return;
+  metadata = json_node_get_object (json_parser_get_root (parser));
+  if (g_strcmp0 (json_object_get_string_member (metadata, "url"), self->url) != 0)
+    return;
+  description = json_object_get_string_member (metadata, "description");
+  if (g_set_str (&self->description, description)) {
+    g_autofree char *path = description_path (self->url);
+    g_autofree char *directory = g_path_get_dirname (path);
+
+    if (ephy_embed_shell_get_mode (ephy_embed_shell_get_default ()) != EPHY_EMBED_SHELL_MODE_INCOGNITO &&
+        g_mkdir_with_parents (directory, 0700) == 0)
+      g_file_set_contents_full (path, description, -1, G_FILE_SET_CONTENTS_CONSISTENT, 0600, NULL);
+    g_object_notify_by_pspec (G_OBJECT (self), obj_properties[PROP_DESCRIPTION]);
+  }
+}
+
+void
+ephy_bookmark_update_from_view (EphyBookmark  *self,
+                                WebKitWebView *view)
+{
+  const char *script =
+    "JSON.stringify({url: location.href, description: "
+    "(document.querySelector('meta[name=\"description\"]')?.content || "
+    "document.querySelector('meta[property=\"og:description\"]')?.content || '')"
+    ".replace(/\\s+/g, ' ').trim().slice(0, 512)})";
+
+  if (g_strcmp0 (webkit_web_view_get_uri (view), self->url) != 0 ||
+      (!g_str_has_prefix (self->url, "https://") && !g_str_has_prefix (self->url, "http://")))
+    return;
+  webkit_web_view_evaluate_javascript (view, script, -1,
+                                       ephy_embed_shell_get_guid (ephy_embed_shell_get_default ()), NULL, NULL,
+                                       description_ready_cb, g_object_ref (self));
+}
+
 void
 ephy_bookmark_set_url (EphyBookmark *self,
                        const char   *url)
@@ -414,6 +491,13 @@ ephy_bookmark_set_url (EphyBookmark *self,
   g_assert (EPHY_IS_BOOKMARK (self));
 
   if (g_set_str (&self->url, url)) {
+    g_autofree char *path = description_path (url);
+
+    g_clear_pointer (&self->description, g_free);
+    g_file_get_contents (path, &self->description, NULL, NULL);
+    if (self->description && !g_utf8_validate (self->description, -1, NULL))
+      g_clear_pointer (&self->description, g_free);
+    g_object_notify_by_pspec (G_OBJECT (self), obj_properties[PROP_DESCRIPTION]);
     if (self->icon_cancellable) {
       g_cancellable_cancel (self->icon_cancellable);
       g_clear_object (&self->icon_cancellable);
@@ -676,7 +760,8 @@ serializable_serialize_property (JsonSerializable *serializable,
   }
 
   /* This is not a Firefox bookmark property, skip it. */
-  if (g_strcmp0 (name, "time-added") == 0 || g_strcmp0 (name, "icon") == 0)
+  if (g_strcmp0 (name, "time-added") == 0 || g_strcmp0 (name, "icon") == 0 ||
+      g_strcmp0 (name, "description") == 0)
     return NULL;
 
   return json_serializable_default_serialize_property (serializable, name, value, pspec);

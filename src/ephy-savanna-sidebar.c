@@ -19,6 +19,8 @@
 
 typedef struct {
   EphyWindow *window;
+  GtkStack *stack;
+  GtkWidget *bookmarks;
   GtkWidget *root;
   GtkWidget *groups;
   GtkWidget *profile;
@@ -518,6 +520,17 @@ collection_clicked (GtkButton *button,
   adw_dialog_present (dialog, GTK_WIDGET (sidebar->window));
 }
 
+void
+ephy_savanna_sidebar_show_bookmarks (EphyWindow *window,
+                                     gboolean    show)
+{
+  GtkStack *stack = g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack");
+
+  if (!stack)
+    return;
+  gtk_stack_set_visible_child_name (stack, show ? "bookmarks" : "navigation");
+}
+
 static void
 sidebar_free (gpointer data)
 {
@@ -528,9 +541,11 @@ sidebar_free (gpointer data)
 }
 
 GtkWidget *
-ephy_savanna_sidebar_new (EphyWindow *window)
+ephy_savanna_sidebar_new (EphyWindow *window,
+                          GtkWidget  *bookmarks_view)
 {
   Sidebar *sidebar = g_new0 (Sidebar, 1);
+  GtkWidget *stack = gtk_stack_new ();
   GtkWidget *scroll = gtk_scrolled_window_new ();
   GtkWidget *box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   GtkWidget *profile = sidebar_button ("avatar-default-symbolic", "");
@@ -547,10 +562,14 @@ ephy_savanna_sidebar_new (EphyWindow *window)
   const char *kinds[] = { "recent", "reading", "shared" };
 
   sidebar->window = window;
-  sidebar->root = scroll;
+  sidebar->stack = GTK_STACK (stack);
+  sidebar->bookmarks = bookmarks_view;
+  sidebar->root = stack;
   sidebar->groups = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   sidebar->profile = gtk_widget_get_last_child (gtk_button_get_child (GTK_BUTTON (profile)));
-  g_object_set_data_full (G_OBJECT (scroll), "savanna-sidebar", sidebar, sidebar_free);
+  g_object_set_data_full (G_OBJECT (stack), "savanna-sidebar", sidebar, sidebar_free);
+  g_object_set_data (G_OBJECT (scroll), "savanna-sidebar", sidebar);
+  g_object_set_data (G_OBJECT (window), "savanna-sidebar-stack", stack);
   gtk_widget_add_css_class (scroll, "savanna-sidebar");
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
   gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (scroll), box);
@@ -589,5 +608,7 @@ ephy_savanna_sidebar_new (EphyWindow *window)
   g_signal_connect_object (view, "page-attached", G_CALLBACK (page_attached), scroll, 0);
   pages_changed (view, NULL, scroll);
   refresh_groups (sidebar);
-  return scroll;
+  gtk_stack_add_named (sidebar->stack, scroll, "navigation");
+  gtk_stack_add_named (sidebar->stack, bookmarks_view, "bookmarks");
+  return stack;
 }

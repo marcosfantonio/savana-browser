@@ -163,7 +163,6 @@ struct _EphyWindow {
   AdwTabBar *tab_bar;
   GtkWidget *action_bar_revealer;
   GtkWidget *action_bar;
-  GtkWidget *overlay_split_view;
   GtkWidget *navigation_split_view;
   GtkWidget *sidebar_downloads_button;
   GtkWidget *bottom_sheet;
@@ -233,7 +232,6 @@ enum {
   SENS_FLAG_IS_BLANK      = 1 << 5,
   SENS_FLAG_IS_INTERNAL_PAGE = 1 << 6,
   SENS_FLAG_IS_OVERVIEW   = 1 << 7,
-  SENS_FLAG_IS_SIDEBAR    = 1 << 9,
 };
 
 static gint
@@ -1285,6 +1283,10 @@ sync_tab_address (EphyWebView *view,
     gtk_widget_remove_css_class (GTK_WIDGET (window), "savanna-compact");
   else
     gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-compact");
+  if (ephy_web_view_is_newtab (view) || ephy_web_view_get_is_blank (view))
+    gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-empty-tab");
+  else
+    gtk_widget_remove_css_class (GTK_WIDGET (window), "savanna-empty-tab");
   typed_address = ephy_web_view_get_typed_address (view);
   is_internal_page = g_str_has_prefix (address, "about:") || g_str_has_prefix (address, "ephy-about:");
 
@@ -2744,6 +2746,14 @@ load_changed_cb (EphyWebView     *view,
 {
   sync_tab_load_status (view, load_event, window);
   sync_tab_address (view, NULL, window);
+  if (load_event == WEBKIT_LOAD_FINISHED) {
+    EphyBookmark *bookmark = ephy_bookmarks_manager_get_bookmark_by_url (
+      ephy_shell_get_bookmarks_manager (ephy_shell_get_default ()),
+      webkit_web_view_get_uri (WEBKIT_WEB_VIEW (view)));
+
+    if (bookmark)
+      ephy_bookmark_update_from_view (bookmark, WEBKIT_WEB_VIEW (view));
+  }
 }
 
 static void
@@ -3085,8 +3095,10 @@ ephy_window_set_active_tab (EphyWindow *window,
 
   window->active_embed = new_embed;
 
-  if (new_embed)
+  if (new_embed) {
     ephy_window_connect_active_embed (window);
+    sync_tab_address (ephy_embed_get_web_view (new_embed), NULL, window);
+  }
 }
 
 static void
@@ -4461,80 +4473,6 @@ notify_overview_open_cb (EphyWindow *window)
   _ephy_window_set_default_actions_sensitive (window, SENS_FLAG_IS_OVERVIEW, overview_open);
 }
 
-static const char *disabled_win_actions_for_sidebar[] = {
-  "home",
-  "new-tab",
-  "location",
-  "location-search",
-  "tabs-view",
-  "show-downloads",
-  "zoom-in",
-  "zoom-out",
-  "zoom-normal",
-  "toggle-inspector",
-  "toggle-reader-mode",
-};
-
-static const char *disabled_toolbar_actions_for_sidebar[] = {
-  "stop",
-  "reload",
-  "reload-bypass-cache",
-  "navigation-back",
-  "navigation-forward",
-};
-
-static const char *disabled_tab_actions_for_sidebar[] = {
-  "close",
-  "duplicate",
-};
-
-static void
-show_sidebar_cb (EphyWindow *window)
-{
-  GActionGroup *action_group;
-  GAction *action;
-  guint i;
-  gboolean shown = adw_overlay_split_view_get_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->overlay_split_view));
-  AdwTabView *tab_view = ephy_tab_view_get_tab_view (window->tab_view);
-
-  action_group = ephy_window_get_action_group (window, "win");
-  for (i = 0; i < G_N_ELEMENTS (disabled_win_actions_for_sidebar); i++) {
-    action = g_action_map_lookup_action (G_ACTION_MAP (action_group),
-                                         disabled_win_actions_for_sidebar[i]);
-    ephy_action_change_sensitivity_flags (G_SIMPLE_ACTION (action),
-                                          SENS_FLAG_IS_SIDEBAR, shown);
-  }
-
-  action_group = ephy_window_get_action_group (window, "toolbar");
-  for (i = 0; i < G_N_ELEMENTS (disabled_toolbar_actions_for_sidebar); i++) {
-    action = g_action_map_lookup_action (G_ACTION_MAP (action_group),
-                                         disabled_toolbar_actions_for_sidebar[i]);
-    ephy_action_change_sensitivity_flags (G_SIMPLE_ACTION (action),
-                                          SENS_FLAG_IS_SIDEBAR, shown);
-  }
-
-  action_group = ephy_window_get_action_group (window, "tab");
-  for (i = 0; i < G_N_ELEMENTS (disabled_tab_actions_for_sidebar); i++) {
-    action = g_action_map_lookup_action (G_ACTION_MAP (action_group),
-                                         disabled_tab_actions_for_sidebar[i]);
-    ephy_action_change_sensitivity_flags (G_SIMPLE_ACTION (action),
-                                          SENS_FLAG_IS_SIDEBAR, shown);
-  }
-
-  if (shown) {
-    adw_tab_view_set_shortcuts (tab_view, ADW_TAB_VIEW_SHORTCUT_NONE);
-  } else {
-    adw_tab_view_set_shortcuts (tab_view, ADW_TAB_VIEW_SHORTCUT_ALL_SHORTCUTS);
-    adw_tab_view_remove_shortcuts (tab_view,
-                                   ADW_TAB_VIEW_SHORTCUT_CONTROL_HOME | ADW_TAB_VIEW_SHORTCUT_CONTROL_END |
-                                   ADW_TAB_VIEW_SHORTCUT_CONTROL_SHIFT_HOME | ADW_TAB_VIEW_SHORTCUT_CONTROL_SHIFT_END);
-  }
-
-  _ephy_window_set_default_actions_sensitive (window,
-                                              SENS_FLAG_IS_SIDEBAR,
-                                              shown);
-}
-
 static AdwTabPage *
 create_tab_cb (EphyWindow *window)
 {
@@ -4726,9 +4664,13 @@ ephy_window_constructed (GObject *object)
   gtk_application_window_set_show_menubar (GTK_APPLICATION_WINDOW (window), FALSE);
   {
     GtkWidget *sidebar_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-    GtkWidget *sidebar = ephy_savanna_sidebar_new (window);
+    GtkWidget *sidebar;
     GtkWidget *tools = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
     GtkWidget *preferences = gtk_button_new_from_icon_name ("emblem-system-symbolic");
+
+    window->bookmarks_dialog = ephy_bookmarks_dialog_new ();
+    gtk_widget_add_css_class (window->bookmarks_dialog, "savanna-bookmarks");
+    sidebar = ephy_savanna_sidebar_new (window, window->bookmarks_dialog);
 
     gtk_widget_add_css_class (sidebar_box, "savanna-sidebar-pane");
     gtk_widget_set_vexpand (sidebar, TRUE);
@@ -4900,14 +4842,11 @@ ephy_window_class_init (EphyWindowClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/epiphany/gtk/window.ui");
 
-  gtk_widget_class_bind_template_child (widget_class, EphyWindow, overlay_split_view);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, overview);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, fullscreen_box);
-  gtk_widget_class_bind_template_child (widget_class, EphyWindow, bookmarks_dialog);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, navigation_split_view);
 
   gtk_widget_class_bind_template_callback (widget_class, notify_fullscreen_cb);
-  gtk_widget_class_bind_template_callback (widget_class, show_sidebar_cb);
   gtk_widget_class_bind_template_callback (widget_class, notify_overview_open_cb);
   gtk_widget_class_bind_template_callback (widget_class, create_tab_cb);
   gtk_widget_class_bind_template_callback (widget_class, pan_cb);
@@ -5550,7 +5489,7 @@ ephy_window_get_search_engine_model (EphyWindow *window)
 gboolean
 ephy_window_get_sidebar_shown (EphyWindow *window)
 {
-  return adw_overlay_split_view_get_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->overlay_split_view));
+  return adw_overlay_split_view_get_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->navigation_split_view));
 }
 
 static void
@@ -5591,27 +5530,24 @@ ephy_window_switch_to_new_tab (EphyWindow *window)
 gboolean
 ephy_window_get_show_sidebar (EphyWindow *self)
 {
-  return adw_overlay_split_view_get_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->overlay_split_view));
+  return adw_overlay_split_view_get_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->navigation_split_view));
 }
 
 void
 ephy_window_toggle_bookmarks (EphyWindow *self)
 {
-  gboolean state;
+  gboolean showing_bookmarks = g_strcmp0 (gtk_stack_get_visible_child_name (
+    GTK_STACK (g_object_get_data (G_OBJECT (self), "savanna-sidebar-stack"))), "bookmarks") == 0;
 
-  state = !adw_overlay_split_view_get_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->overlay_split_view));
-  adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->overlay_split_view), state);
-
-  if (state) {
+  if (!showing_bookmarks) {
+    ephy_savanna_sidebar_show_bookmarks (self, TRUE);
+    adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->navigation_split_view), TRUE);
     ephy_bookmarks_dialog_set_is_editing (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog), FALSE);
     ephy_bookmarks_dialog_focus (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog));
   } else {
-    EphyWebView *web_view = ephy_embed_get_web_view (self->active_embed);
-
+    ephy_savanna_sidebar_show_bookmarks (self, FALSE);
+    adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->navigation_split_view), FALSE);
     ephy_bookmarks_dialog_clear_search (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog));
-
-    /* Set the navigation flags so the buttons don't become sensitive when exiting. */
-    _ephy_window_set_navigation_flags (self, ephy_web_view_get_navigation_flags (web_view));
   }
 }
 

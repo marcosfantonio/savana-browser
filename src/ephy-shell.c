@@ -640,8 +640,8 @@ start_page_bookmarks_cb (EphyShell *shell)
     const char *title = ephy_bookmark_get_title (bookmark);
     g_autofree char *escaped_url = NULL;
     g_autofree char *escaped_title = NULL;
-    g_autofree char *initial = NULL;
-    g_autofree char *escaped_initial = NULL;
+    g_autofree char *icon_uri = NULL;
+    GIcon *icon;
 
     if (!g_str_has_prefix (url, "https://") && !g_str_has_prefix (url, "http://"))
       continue;
@@ -649,10 +649,22 @@ start_page_bookmarks_cb (EphyShell *shell)
       title = url;
     escaped_url = g_markup_escape_text (url, -1);
     escaped_title = g_markup_escape_text (title, -1);
-    initial = g_utf8_substring (title, 0, 1);
-    escaped_initial = g_markup_escape_text (initial, -1);
-    g_string_append_printf (html, "<a class=\"favorite\" href=\"%s\" title=\"%s\"><span class=\"tile user-favorite\" aria-hidden=\"true\">%s</span><span>%s</span></a>",
-                            escaped_url, escaped_title, escaped_initial, escaped_title);
+    if (!g_object_get_data (G_OBJECT (bookmark), "savanna-start-page-icon-connected")) {
+      g_signal_connect_object (bookmark, "notify::icon", G_CALLBACK (start_page_bookmarks_changed_cb), shell, G_CONNECT_SWAPPED);
+      g_object_set_data (G_OBJECT (bookmark), "savanna-start-page-icon-connected", GINT_TO_POINTER (TRUE));
+    }
+    ephy_bookmark_start_loading_icon (bookmark);
+    icon = ephy_bookmark_get_icon (bookmark);
+    if (GDK_IS_TEXTURE (icon)) {
+      g_autoptr (GBytes) png = gdk_texture_save_to_png_bytes (GDK_TEXTURE (icon));
+      g_autofree char *base64 = g_base64_encode (g_bytes_get_data (png, NULL), g_bytes_get_size (png));
+
+      icon_uri = g_strconcat ("data:image/png;base64,", base64, NULL);
+    } else {
+      icon_uri = g_strdup ("ephy-resource:///org/gnome/epiphany/page-icons/web-app-icon-missing.svg");
+    }
+    g_string_append_printf (html, "<a class=\"favorite\" href=\"%s\" title=\"%s\"><span class=\"tile user-favorite\" aria-hidden=\"true\"><img class=\"favorite-icon\" src=\"%s\" alt=\"\"></span><span>%s</span></a>",
+                            escaped_url, escaped_title, icon_uri, escaped_title);
   }
   if (!html->len)
     g_string_append (html, "<p class=\"empty-state\">Adicione favoritos pelo menu do site para vê-los aqui.</p>");

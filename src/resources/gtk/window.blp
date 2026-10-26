@@ -41,14 +41,7 @@ template $EphyWindow: Adw.ApplicationWindow {
     }
   }
 
-  content: Adw.OverlaySplitView overlay_split_view {
-    max-sidebar-width: 360;
-    collapsed: true;
-    show-sidebar: false;
-    sidebar-position: end;
-    notify::show-sidebar => $show_sidebar_cb() swapped;
-
-    content: Adw.TabOverview overview {
+  content: Adw.TabOverview overview {
       enable-new-tab: true;
       secondary-menu: overview_menu;
       notify::open => $notify_overview_open_cb() swapped;
@@ -66,9 +59,6 @@ template $EphyWindow: Adw.ApplicationWindow {
 
         };
       };
-    };
-
-    sidebar: $EphyBookmarksDialog bookmarks_dialog {};
   };
 
   GesturePan {

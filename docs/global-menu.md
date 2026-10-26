@@ -64,7 +64,9 @@ gdbus call --session --dest com.savanna.Browser \
   --method com.canonical.dbusmenu.GetLayout 0 -1 '[]'
 ```
 
-The layout should contain the eight top-level menus. On Wayland,
+The layout should contain the seven top-level menus (File, Edit, View, History,
+Bookmarks, Window and Help). The application name is supplied by the desktop
+integration and is not repeated as a Savanna menu. On Wayland,
 `WAYLAND_DEBUG=client` shows `org_kde_kwin_appmenu.set_address` for the window.
 On X11, `xprop` shows the two `_KDE_NET_WM_APPMENU_*` properties. D-Bus layout
 export and native surface registration must **both** work; a successful

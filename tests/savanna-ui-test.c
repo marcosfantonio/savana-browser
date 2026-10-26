@@ -3,6 +3,8 @@
 #include <gtk/gtk.h>
 
 #include "ephy-bookmark.h"
+#include "ephy-bookmark-row.h"
+#include "ephy-bookmarks-dialog.h"
 #include "ephy-bookmarks-manager.h"
 #include "ephy-embed-container.h"
 #include "ephy-embed.h"
@@ -48,14 +50,24 @@ call_dbusmenu (GtkApplicationWindow *window,
   GtkApplication *application = gtk_window_get_application (GTK_WINDOW (window));
   GDBusConnection *connection = g_application_get_dbus_connection (G_APPLICATION (application));
   g_autoptr (GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  g_autoptr (GVariant) arguments = g_variant_ref_sink (parameters);
   MenuCall call = { .loop = loop };
   const char *path = ephy_global_menu_get_dbusmenu_path (window);
 
   g_assert_nonnull (path);
-  g_dbus_connection_call (connection, g_dbus_connection_get_unique_name (connection), path,
-                          "com.canonical.dbusmenu", method, parameters, NULL,
-                          G_DBUS_CALL_FLAGS_NONE, 5000, NULL, menu_call_finished, &call);
-  g_main_loop_run (loop);
+  for (guint attempt = 0; attempt < 100; attempt++) {
+    g_dbus_connection_call (connection, g_dbus_connection_get_unique_name (connection), path,
+                            "com.canonical.dbusmenu", method, arguments, NULL,
+                            G_DBUS_CALL_FLAGS_NONE, 5000, NULL, menu_call_finished, &call);
+    g_main_loop_run (loop);
+    if (!g_error_matches (call.error, G_DBUS_ERROR, G_DBUS_ERROR_UNKNOWN_METHOD) ||
+        !g_str_equal (method, "GetLayout") || attempt == 99)
+      break;
+    /* The server registers asynchronously when a new window is constructed. */
+    g_clear_error (&call.error);
+    g_timeout_add_once (25, (GSourceOnceFunc)g_main_loop_quit, loop);
+    g_main_loop_run (loop);
+  }
   g_assert_no_error (call.error);
   g_assert_nonnull (call.reply);
   return call.reply;
@@ -90,13 +102,17 @@ assert_dbusmenu (GtkApplicationWindow *window,
   g_autoptr (GVariant) root = g_variant_get_child_value (reply, 1);
   g_autoptr (GVariant) children = g_variant_get_child_value (root, 2);
   g_autoptr (GVariant) item = find_menu_layout (root, "Show Sidebar");
+  g_autoptr (GVariant) find_item = find_menu_layout (root, "Find…");
+  g_autoptr (GVariant) search_item = find_menu_layout (root, "Pesquisar");
   g_autoptr (GVariant) id = NULL;
   g_autoptr (GVariant) event = NULL;
   GSimpleAction *action = G_SIMPLE_ACTION (g_action_map_lookup_action (G_ACTION_MAP (window), "toggle-sidebar"));
   gboolean initial = adw_overlay_split_view_get_show_sidebar (split);
   gint32 item_id;
 
-  g_assert_cmpuint (g_variant_n_children (children), ==, 8);
+  g_assert_cmpuint (g_variant_n_children (children), ==, 7);
+  g_assert_null (find_item);
+  g_assert_null (search_item);
   g_assert_nonnull (item);
   id = g_variant_get_child_value (item, 0);
   item_id = g_variant_get_int32 (id);
@@ -172,6 +188,27 @@ find_background_color (GskRenderNode *node)
     default:
       return NULL;
   }
+}
+
+static void
+assert_bookmarks_chrome (GtkWidget *widget)
+{
+  g_assert_false (ADW_IS_HEADER_BAR (widget));
+  g_assert_false (GTK_IS_WINDOW_CONTROLS (widget));
+  g_assert_false (gtk_widget_has_css_class (widget, "title-1"));
+  if (GTK_IS_LIST_BOX (widget) || GTK_IS_SCROLLED_WINDOW (widget) ||
+      gtk_widget_has_css_class (widget, "savanna-bookmarks") ||
+      gtk_widget_has_css_class (widget, "savanna-bookmark-row")) {
+    g_autoptr (GskRenderNode) background = background_node (widget);
+
+    g_assert_null (background);
+  }
+  if (GTK_IS_IMAGE (widget)) {
+    g_assert_cmpstr (gtk_image_get_icon_name (GTK_IMAGE (widget)), !=, "view-sidebar-end-symbolic");
+    g_assert_cmpstr (gtk_image_get_icon_name (GTK_IMAGE (widget)), !=, "view-sidebar-start-symbolic");
+  }
+  for (GtkWidget *child = gtk_widget_get_first_child (widget); child; child = gtk_widget_get_next_sibling (child))
+    assert_bookmarks_chrome (child);
 }
 
 static void
@@ -276,6 +313,9 @@ page_loaded_cb (WebKitWebView *view,
     "const links = [...document.querySelectorAll('.favorite')];"
     "if (!links.some(a => a.href === 'https://savanna.test/' && a.textContent.includes('<Real Bookmark>'))) return 'bookmarks';"
     "if (document.querySelector('.favorites script')) return 'escaping';"
+    "const icon = document.querySelector('.favorite .favorite-icon');"
+    "if (!icon || !icon.complete || !icon.naturalWidth) return 'favorite icon';"
+    "if (document.querySelector('.user-favorite').textContent.trim()) return 'letter tile';"
     "if (document.documentElement.dataset.theme !== 'dark') return 'theme';"
     "if (!getComputedStyle(document.body).backgroundImage.includes('savanna-wallpaper-dark.svg')) return 'dark wallpaper';"
     "if (!document.querySelector('.start-logo').src.endsWith('logo.svg')) return 'logo';"
@@ -333,6 +373,59 @@ populated_page_loaded_cb (WebKitWebView *view,
 }
 
 static void
+preview_loaded_cb (WebKitWebView *view,
+                    WebKitLoadEvent event,
+                    EphyBookmark *bookmark)
+{
+  if (event == WEBKIT_LOAD_FINISHED)
+    ephy_bookmark_update_from_view (bookmark, view);
+}
+
+static void
+preview_description_cb (EphyBookmark *bookmark,
+                        GParamSpec *pspec,
+                        GMainLoop *loop)
+{
+  g_main_loop_quit (loop);
+}
+
+static void
+test_bookmark_preview (void)
+{
+  g_autoptr (EphyBookmark) bookmark = ephy_bookmark_new ("https://preview.test/", "Preview", NULL, "preview");
+  g_autoptr (EphyBookmark) restored = NULL;
+  g_autoptr (GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  g_autoptr (GtkWidget) view = g_object_ref_sink (ephy_web_view_new ());
+  g_autoptr (GtkWidget) row = g_object_ref_sink (ephy_bookmark_row_new (bookmark));
+  GtkWidget *large = GTK_WIDGET (gtk_widget_get_template_child (row, EPHY_TYPE_BOOKMARK_ROW, "favicon_image"));
+  GtkWidget *small = GTK_WIDGET (gtk_widget_get_template_child (row, EPHY_TYPE_BOOKMARK_ROW, "url_favicon_image"));
+  GtkWidget *url = GTK_WIDGET (gtk_widget_get_template_child (row, EPHY_TYPE_BOOKMARK_ROW, "url_label"));
+  GtkWidget *description = GTK_WIDGET (gtk_widget_get_template_child (row, EPHY_TYPE_BOOKMARK_ROW, "description_label"));
+  GtkWidget *controls = GTK_WIDGET (gtk_widget_get_template_child (row, EPHY_TYPE_BOOKMARK_ROW, "edit_controls"));
+
+  g_assert_cmpint (gtk_image_get_pixel_size (GTK_IMAGE (large)), ==, 48);
+  g_assert_cmpint (gtk_image_get_pixel_size (GTK_IMAGE (small)), ==, 16);
+  g_assert_nonnull (gtk_image_get_gicon (GTK_IMAGE (large)));
+  g_assert_cmpstr (gtk_label_get_text (GTK_LABEL (url)), ==, "preview.test/");
+  ephy_bookmark_row_set_is_editing (EPHY_BOOKMARK_ROW (row), FALSE);
+  g_assert_false (gtk_widget_get_visible (controls));
+  g_assert_true (gtk_widget_get_visible (large));
+  g_signal_connect (bookmark, "notify::description", G_CALLBACK (preview_description_cb), loop);
+  g_signal_connect (view, "load-changed", G_CALLBACK (preview_loaded_cb), bookmark);
+  webkit_web_view_load_html (WEBKIT_WEB_VIEW (view),
+                             "<meta name='description' content='A &lt;real&gt; site summary.'><title>Preview</title>",
+                             "https://preview.test/");
+  g_main_loop_run (loop);
+  g_assert_cmpstr (ephy_bookmark_get_description (bookmark), ==, "A <real> site summary.");
+  g_assert_cmpstr (gtk_label_get_text (GTK_LABEL (description)), ==, "A <real> site summary.");
+  g_assert_true (gtk_widget_get_visible (description));
+  restored = ephy_bookmark_new ("https://preview.test/", "Preview", NULL, "restored");
+  g_assert_cmpstr (ephy_bookmark_get_description (restored), ==, "A <real> site summary.");
+  g_signal_handlers_disconnect_by_data (bookmark, loop);
+  g_signal_handlers_disconnect_by_data (view, bookmark);
+}
+
+static void
 test_interface (void)
 {
   EphyShell *shell = ephy_shell_get_default ();
@@ -382,7 +475,7 @@ test_interface (void)
   ephy_bookmarks_manager_add_bookmark (manager, bookmark);
   window = ephy_window_new ();
   g_assert_nonnull (gtk_application_get_menubar (GTK_APPLICATION (shell)));
-  g_assert_cmpint (g_menu_model_get_n_items (gtk_application_get_menubar (GTK_APPLICATION (shell))), ==, 8);
+  g_assert_cmpint (g_menu_model_get_n_items (gtk_application_get_menubar (GTK_APPLICATION (shell))), ==, 7);
   g_assert_true (g_action_group_has_action (G_ACTION_GROUP (window), "new-tab"));
   g_assert_true (g_action_group_has_action (G_ACTION_GROUP (window), "global-tab-close"));
   g_assert_true (g_action_group_has_action (G_ACTION_GROUP (window), "global-toolbar-reload"));
@@ -427,6 +520,31 @@ test_interface (void)
   g_assert_true (adw_overlay_split_view_get_show_sidebar (split));
   gtk_widget_activate_action (GTK_WIDGET (window), "win.toggle-sidebar", NULL);
   g_assert_false (adw_overlay_split_view_get_show_sidebar (split));
+  g_assert_null (gtk_widget_get_template_child (GTK_WIDGET (window), EPHY_TYPE_WINDOW, "overlay_split_view"));
+  g_action_group_activate_action (G_ACTION_GROUP (window), "bookmarks", NULL);
+  g_assert_true (adw_overlay_split_view_get_show_sidebar (split));
+  g_assert_cmpstr (gtk_stack_get_visible_child_name (GTK_STACK (
+    g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack"))), ==, "bookmarks");
+  {
+    GtkStack *stack = g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack");
+    GtkWidget *pane = gtk_stack_get_visible_child (stack);
+    GtkWidget *back = find_sidebar_button (pane, "Back");
+    GtkWidget *done = GTK_WIDGET (gtk_widget_get_template_child (pane, EPHY_TYPE_BOOKMARKS_DIALOG, "done_button"));
+
+    assert_bookmarks_chrome (pane);
+    g_assert_nonnull (back);
+    g_assert_false (gtk_widget_get_visible (done));
+    g_assert_true (gtk_widget_activate_action (pane, "dialog.edit", NULL));
+    g_assert_true (gtk_widget_get_visible (done));
+    g_signal_emit_by_name (done, "clicked");
+    g_assert_false (gtk_widget_get_visible (done));
+    g_signal_emit_by_name (back, "clicked");
+    g_assert_cmpstr (gtk_stack_get_visible_child_name (stack), ==, "navigation");
+    g_assert_true (adw_overlay_split_view_get_show_sidebar (split));
+    g_action_group_activate_action (G_ACTION_GROUP (window), "bookmarks", NULL);
+  }
+  g_action_group_activate_action (G_ACTION_GROUP (window), "bookmarks", NULL);
+  g_assert_false (adw_overlay_split_view_get_show_sidebar (split));
 
   tabs = ephy_tab_view_get_tab_view (ephy_window_get_tab_view (window));
   ephy_shell_new_tab_full (shell, NULL, NULL, window, NULL, EPHY_NEW_TAB_DONT_SHOW_WINDOW);
@@ -463,6 +581,10 @@ test_interface (void)
   g_assert_cmpint (page_height, <, home_height);
   g_assert_cmpint (page_control_height, ==, home_control_height);
   g_assert_cmpint (page_url_height, ==, home_url_height);
+  adw_tab_view_set_selected_page (tabs, adw_tab_view_get_nth_page (tabs, 1));
+  g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savanna-compact"));
+  adw_tab_view_set_selected_page (tabs, adw_tab_view_get_nth_page (tabs, 0));
+  g_assert_true (gtk_widget_has_css_class (GTK_WIDGET (window), "savanna-compact"));
   webkit_web_view_stop_loading (WEBKIT_WEB_VIEW (ephy_embed_get_web_view (embed)));
 
   {
@@ -618,6 +740,7 @@ main (int argc, char **argv)
   _ephy_shell_create_instance (EPHY_EMBED_SHELL_MODE_TEST);
   g_assert_true (g_application_register (G_APPLICATION (ephy_shell_get_default ()), NULL, NULL));
   g_test_add_func ("/savanna/interface", test_interface);
+  g_test_add_func ("/savanna/bookmark-preview", test_bookmark_preview);
   result = g_test_run ();
   g_object_unref (ephy_shell_get_default ());
   ephy_file_helpers_shutdown ();

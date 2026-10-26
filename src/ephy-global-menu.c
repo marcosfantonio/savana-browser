@@ -11,9 +11,6 @@ ephy_global_menu_setup (GtkApplication *application)
     const char *label;
     const char *action;
   } entries[] = {
-    { "Savanna", N_("_About Savanna"), "app.about" },
-    { NULL, N_("_Preferences"), "app.preferences" },
-    { NULL, N_("_Quit"), "app.quit" },
     { N_("_File"), N_("New _Tab"), "win.new-tab" },
     { NULL, N_("_New Window"), "app.new-window" },
     { NULL, N_("New _Incognito Window"), "app.new-incognito" },
@@ -27,7 +24,6 @@ ephy_global_menu_setup (GtkApplication *application)
     { NULL, N_("_Copy"), "win.copy" },
     { NULL, N_("_Paste"), "win.paste" },
     { NULL, N_("Select _All"), "win.select-all" },
-    { NULL, N_("_Find…"), "win.find" },
     { N_("_View"), N_("_Reload"), "win.global-toolbar-reload" },
     { NULL, N_("_Stop"), "win.global-toolbar-stop" },
     { NULL, N_("Zoom _In"), "win.zoom-in" },

@@ -53,7 +53,7 @@ html {
 
 .start-page #overview { padding: 0; margin: 0; display: block; }
 .start-page #most-visited-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding: 0; margin: 0; }
-.start-page .overview-item { width: auto; margin: 0; padding: 0; border-radius: 15px; overflow: hidden; background: #f7faf8b8; position: relative; }
+.start-page .overview-item { width: auto; margin: 0; padding: 0; border-radius: 15px; overflow: hidden; background: #f5f7f4c7; position: relative; }
 .start-page .overview-item:not([href]) { display: none; }
 .start-page .overview-thumbnail { width: 100%; height: 140px; border: none; border-radius: 0; box-shadow: none; background-color: #ffffff80; }
 .start-page .overview-title { display: block; width: auto; color: #303a40; padding: 12px; margin: 0; text-align: start; }
@@ -95,7 +95,7 @@ html[data-theme="dark"] .welcome-card input { color: #f1f1f1; }
 html[data-theme="dark"] .welcome-card button { color: #90b8fa; }
 html[data-theme="dark"] .user-favorite { background: linear-gradient(145deg, #4a4a4a, #363636); color: #ddd; box-shadow: inset 0 1px #ffffff12, 0 2px 5px #0002; }
 html[data-theme="dark"] .suggestion-card,
-html[data-theme="dark"] .overview-item { background: #353535; color: #eee; }
+html[data-theme="dark"] .overview-item { background: #272d30c7; color: #eee; }
 html[data-theme="dark"] .user-suggestion > span { background: #414141; color: #aaa; }
 html[data-theme="dark"] .suggestion-card small { color: #bbb; }
 html[data-theme="dark"] .overview-title { color: #eee; }
@@ -103,6 +103,7 @@ html[data-theme="dark"] .customize-panel { background: #303030f2; border-color: 
 html[data-theme="dark"] body:has(#show-wallpaper:not(:checked)) { background: #252525; }
 .start-logo { border-radius: 16px; }
 .user-favorite { font-family: inherit; font-size: 2.6em; color: #765339; background: linear-gradient(135deg, #f6e5bd, #d7b38c); }
+.favorite-icon { width: 72%; height: 72%; object-fit: contain; border-radius: 12px; }
 .user-suggestion > span { background: linear-gradient(135deg, #c7deeb, #e7e6d6); color: #637b89; font-size: 3em; }
 .empty-state { grid-column: 1 / -1; color: #626b70; line-height: 1.6; }
 .favorite > span:last-child { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

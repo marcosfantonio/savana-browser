@@ -42,5 +42,7 @@ void                 ephy_bookmark_row_open             (EphyBookmarkRow *self,
 
 void                 ephy_bookmark_row_set_movable     (EphyBookmarkRow *self,
                                                         gboolean         movable);
+void                 ephy_bookmark_row_set_is_editing  (EphyBookmarkRow *self,
+                                                        gboolean         is_editing);
 
 G_END_DECLS

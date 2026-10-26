@@ -212,7 +212,7 @@ search_provider_sources = [
   search_provider_codegen
 ]
 
-executable('epiphany-search-provider',
+executable('savanna-search-provider',
   search_provider_sources,
   dependencies: ephymain_dep,
   install: true,
@@ -221,8 +221,8 @@ executable('epiphany-search-provider',
 )
 
 webapp_codegen = gnome.gdbus_codegen('ephy-webapp-provider-generated',
-  'webapp-provider/org.gnome.Epiphany.WebAppProvider.xml',
-  interface_prefix: 'org.gnome.Epiphany',
+  'webapp-provider/com.savanna.Browser.WebAppProvider.xml',
+  interface_prefix: 'com.savanna.Browser',
   namespace: 'Ephy'
 )
 
@@ -232,7 +232,7 @@ webapp_provider_sources = [
   webapp_codegen
 ]
 
-executable('epiphany-webapp-provider',
+executable('savanna-webapp-provider',
   webapp_provider_sources,
   dependencies: ephymain_dep,
   install: true,
@@ -265,7 +265,7 @@ epiphany_sources = [
   readability_resources
 ]
 
-epiphany = executable('epiphany',
+savanna = executable('savanna',
   epiphany_sources,
   dependencies: ephymain_dep,
   install: true,

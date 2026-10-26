@@ -35,6 +35,7 @@
   color: #343b3e;
   box-shadow: none;
   border: none;
+  transition: min-height 180ms ease, padding 180ms ease;
 }
 
 .savanna-header-bar button:not(.close):not(.minimize):not(.maximize),
@@ -115,6 +116,10 @@
   font-size: 13px;
 }
 
+.savanna-empty-tab .savanna-header-bar .location-entry entry {
+  text-align: center;
+}
+
 .savanna-header-bar .location-entry button,
 .savanna-header-bar .location-entry .entry-icon > button {
   min-width: 22px;
@@ -129,8 +134,9 @@
 
 .savanna-tab-bar {
   background: transparent;
-  padding: 0 8px 5px;
+  padding: 0 8px 8px;
   color: #3d4548;
+  transition: padding 180ms ease;
 }
 
 .savanna-tab-bar .box {
@@ -265,7 +271,7 @@ popover.suggestions listview > row > grid {
   margin-top: 0;
   margin-bottom: 0;
 }
-.savanna-compact .savanna-tab-bar { padding-bottom: 1px; }
+.savanna-compact .savanna-tab-bar { padding-bottom: 3px; }
 .savanna-header-bar image.downloads-complete { color: var(--accent-color); }
 
 /* These rules must outrank the application palette and user GTK theme.
@@ -385,28 +391,66 @@ popover.suggestions listview > row > grid {
   color: inherit;
 }
 
+/* The bookmarks view lives in the navigation sidebar. Keep the same glass
+ * surface rather than exposing the page wallpaper behind its list. */
+.savanna-window.savanna-surface .savanna-bookmarks {
+  background: transparent;
+  color: var(--window-fg-color);
+}
+.savanna-window.savanna-surface.savanna-compact .savanna-bookmarks {
+  background: transparent;
+}
+
+/* The sidebar pane already paints the glass. Nested backgrounds must not
+ * composite another translucent (or theme-provided opaque) layer over it. */
+.savanna-window.savanna-surface .savanna-bookmarks toolbarview,
+.savanna-window.savanna-surface .savanna-bookmarks .top-bar,
+.savanna-window.savanna-surface .savanna-bookmarks scrolledwindow,
+.savanna-window.savanna-surface .savanna-bookmarks viewport,
+.savanna-window.savanna-surface .savanna-bookmarks list.boxed-list,
+.savanna-window.savanna-surface .savanna-bookmarks list.boxed-list > row {
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  border: none;
+}
+.savanna-window.savanna-surface .savanna-bookmarks list.boxed-list > row {
+  padding: 2px 4px;
+  border-radius: 8px;
+}
+.savanna-window.savanna-surface .savanna-bookmarks list.boxed-list > row:hover {
+  background: alpha(currentColor, .065);
+}
+
 /* A GtkPopover is a native surface with its own shadow-sized allocation.
  * Paint only its rounded contents, never the rectangular outer surface. */
 .savanna-window.savanna-surface popover.suggestions,
-.savanna-window.savanna-surface popover.savanna-downloads-popover {
+.savanna-window.savanna-surface popover.savanna-downloads-popover,
+.savanna-window.savanna-surface popover {
   background: transparent;
+  background-image: none;
   border: none;
   box-shadow: none;
 }
-.savanna-window.savanna-surface popover.suggestions > contents,
-.savanna-window.savanna-surface popover.savanna-downloads-popover > contents {
-  background: alpha(#f5f7f4, .78);
+.savanna-window.savanna-surface popover > contents {
+  background: alpha(#f5f7f4, .92);
   color: #252a30;
   border: 1px solid alpha(white, .65);
   border-radius: 20px;
   box-shadow: 0 8px 24px alpha(black, .18);
   padding: 8px;
 }
-.savanna-window.savanna-surface.savanna-dark popover.suggestions > contents,
-.savanna-window.savanna-surface.savanna-dark popover.savanna-downloads-popover > contents {
-  background: alpha(#272d30, .78);
+.savanna-window.savanna-surface.savanna-dark popover > contents {
+  background: alpha(#272d30, .94);
   color: #eeeeee;
   border-color: alpha(white, .16);
+}
+.savanna-window.savanna-surface popover list,
+.savanna-window.savanna-surface popover listview,
+.savanna-window.savanna-surface popover scrolledwindow,
+.savanna-window.savanna-surface popover viewport {
+  background: transparent;
+  color: inherit;
 }
 .savanna-window.savanna-surface popover.suggestions .background,
 .savanna-window.savanna-surface popover.suggestions scrolledwindow,

@@ -182,6 +182,13 @@ append_model (DbusmenuMenuitem *parent,
     }
     item = dbusmenu_menuitem_new ();
     g_menu_model_get_item_attribute (model, i, G_MENU_ATTRIBUTE_LABEL, "s", &label);
+    /* Find in Page remains available via Ctrl+F, but is intentionally not part
+     * of the Linux global menu. Also filter it here in case a platform menu
+     * model contributes the action independently of our explicit menubar. */
+    if (g_menu_model_get_item_attribute (model, i, G_MENU_ATTRIBUTE_ACTION, "s", &name) &&
+        g_str_equal (name, "win.find"))
+      continue;
+    g_clear_pointer (&name, g_free);
     dbusmenu_menuitem_property_set (item, DBUSMENU_MENUITEM_PROP_LABEL, label ? label : "");
     dbusmenu_menuitem_property_set_bool (item, DBUSMENU_MENUITEM_PROP_VISIBLE, TRUE);
     if (submenu) {
@@ -408,6 +415,18 @@ window_mapped (GtkWidget *window,
 }
 
 static void
+window_unmapped (GtkWidget *window,
+                 WindowMenu *menu)
+{
+  if (menu->display)
+    return;
+  g_clear_handle_id (&menu->registration_idle, g_source_remove);
+  if (menu->registration_cancellable)
+    g_cancellable_cancel (menu->registration_cancellable);
+  g_clear_object (&menu->registration_cancellable);
+}
+
+static void
 window_unrealized (GtkWidget *window,
                    WindowMenu *menu)
 {
@@ -462,6 +481,7 @@ ephy_global_menu_attach (GtkApplicationWindow *window)
   g_object_unref (root);
   g_object_set_data_full (G_OBJECT (window), "savanna-dbusmenu", menu, window_menu_free);
   g_signal_connect (window, "map", G_CALLBACK (window_mapped), menu);
+  g_signal_connect (window, "unmap", G_CALLBACK (window_unmapped), menu);
   g_signal_connect (window, "unrealize", G_CALLBACK (window_unrealized), menu);
   if (gtk_widget_get_mapped (GTK_WIDGET (window)))
     window_mapped (GTK_WIDGET (window), menu);
