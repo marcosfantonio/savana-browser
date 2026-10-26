@@ -571,6 +571,7 @@ ephy_savanna_sidebar_new (EphyWindow *window,
   g_object_set_data (G_OBJECT (scroll), "savanna-sidebar", sidebar);
   g_object_set_data (G_OBJECT (window), "savanna-sidebar-stack", stack);
   gtk_widget_add_css_class (scroll, "savanna-sidebar");
+  gtk_widget_set_margin_bottom (scroll, 64);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
   gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (scroll), box);
   gtk_widget_add_css_class (profile, "sidebar-profile");

@@ -52,7 +52,6 @@
 #include "ephy-flatpak-utils.h"
 #include "ephy-fullscreen-box.h"
 #include "ephy-header-bar.h"
-#include "ephy-downloads-popover.h"
 #include "ephy-lib-type-builtins.h"
 #include "ephy-link.h"
 #include "ephy-location-entry.h"
@@ -164,7 +163,6 @@ struct _EphyWindow {
   GtkWidget *action_bar_revealer;
   GtkWidget *action_bar;
   GtkWidget *navigation_split_view;
-  GtkWidget *sidebar_downloads_button;
   GtkWidget *bottom_sheet;
   GtkWidget *bookmarks_dialog;
   EphyEmbed *active_embed;
@@ -992,26 +990,13 @@ toggle_sidebar_cb (GSimpleAction *action,
   adw_overlay_split_view_set_show_sidebar (split, !adw_overlay_split_view_get_show_sidebar (split));
 }
 
-static void
-sidebar_downloads_mapped_cb (GtkWidget *button,
-                              EphyWindow *window)
-{
-  g_signal_handlers_disconnect_by_func (button, sidebar_downloads_mapped_cb, window);
-  gtk_menu_button_popup (GTK_MENU_BUTTON (button));
-}
-
 void
 ephy_window_show_downloads (EphyWindow *window)
 {
-  GtkWidget *button = window->sidebar_downloads_button;
-
-  adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->navigation_split_view), TRUE);
-  if (gtk_widget_get_mapped (button)) {
-    gtk_menu_button_popup (GTK_MENU_BUTTON (button));
-  } else {
-    g_signal_handlers_disconnect_by_func (button, sidebar_downloads_mapped_cb, window);
-    g_signal_connect_object (button, "map", G_CALLBACK (sidebar_downloads_mapped_cb), window, 0);
-  }
+  if (window->adaptive_mode == EPHY_ADAPTIVE_MODE_NARROW)
+    ephy_action_bar_show_downloads (EPHY_ACTION_BAR (window->action_bar));
+  else
+    ephy_action_bar_end_show_downloads (ephy_header_bar_get_action_bar_end (EPHY_HEADER_BAR (window->header_bar)));
 }
 
 static const GActionEntry window_entries [] = {
@@ -4663,10 +4648,11 @@ ephy_window_constructed (GObject *object)
   window->tab_view = setup_tab_view (window);
   gtk_application_window_set_show_menubar (GTK_APPLICATION_WINDOW (window), FALSE);
   {
-    GtkWidget *sidebar_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+    GtkWidget *sidebar_box = gtk_overlay_new ();
     GtkWidget *sidebar;
     GtkWidget *tools = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
     GtkWidget *preferences = gtk_button_new_from_icon_name ("emblem-system-symbolic");
+    GtkWidget *extensions = gtk_button_new_from_icon_name ("application-x-addon-symbolic");
 
     window->bookmarks_dialog = ephy_bookmarks_dialog_new ();
     gtk_widget_add_css_class (window->bookmarks_dialog, "savanna-bookmarks");
@@ -4674,19 +4660,17 @@ ephy_window_constructed (GObject *object)
 
     gtk_widget_add_css_class (sidebar_box, "savanna-sidebar-pane");
     gtk_widget_set_vexpand (sidebar, TRUE);
-    gtk_box_append (GTK_BOX (sidebar_box), sidebar);
+    gtk_overlay_set_child (GTK_OVERLAY (sidebar_box), sidebar);
     gtk_widget_add_css_class (tools, "savanna-sidebar-tools");
     gtk_widget_set_halign (tools, GTK_ALIGN_CENTER);
-    window->sidebar_downloads_button = gtk_menu_button_new ();
-    gtk_menu_button_set_icon_name (GTK_MENU_BUTTON (window->sidebar_downloads_button), "folder-download-symbolic");
-    gtk_widget_set_tooltip_text (window->sidebar_downloads_button, _("Downloads"));
-    gtk_widget_add_css_class (window->sidebar_downloads_button, "savanna-sidebar-downloads");
-    gtk_menu_button_set_popover (GTK_MENU_BUTTON (window->sidebar_downloads_button), ephy_downloads_popover_new ());
+    gtk_widget_set_valign (tools, GTK_ALIGN_END);
+    gtk_widget_set_tooltip_text (extensions, _("Extensions"));
+    gtk_widget_set_sensitive (extensions, FALSE);
     gtk_widget_set_tooltip_text (preferences, _("Preferences"));
     gtk_actionable_set_action_name (GTK_ACTIONABLE (preferences), "app.preferences");
-    gtk_box_append (GTK_BOX (tools), window->sidebar_downloads_button);
+    gtk_box_append (GTK_BOX (tools), extensions);
     gtk_box_append (GTK_BOX (tools), preferences);
-    gtk_box_append (GTK_BOX (sidebar_box), tools);
+    gtk_overlay_add_overlay (GTK_OVERLAY (sidebar_box), tools);
     adw_overlay_split_view_set_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->navigation_split_view), sidebar_box);
   }
   window->tab_bar = adw_tab_bar_new ();

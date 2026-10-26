@@ -85,7 +85,7 @@ static void
 sync_downloads_visibility (EphyDownloadsManager *manager,
                             EphyActionBarEnd *self)
 {
-  gboolean visible = FALSE;
+  gboolean visible = self->downloads_popover && gtk_widget_get_visible (self->downloads_popover);
   gboolean completed = FALSE;
 
   for (GList *l = ephy_downloads_manager_get_downloads (manager); l; l = l->next) {
@@ -404,11 +404,37 @@ ephy_action_bar_end_set_show_bookmarks_button (EphyActionBarEnd *action_bar_end,
   gtk_widget_set_visible (action_bar_end->bookmarks_button, FALSE);
 }
 
+static void
+downloads_button_mapped_cb (GtkWidget        *button,
+                            EphyActionBarEnd *self)
+{
+  g_signal_handlers_disconnect_by_func (button, downloads_button_mapped_cb, self);
+  gtk_menu_button_popup (GTK_MENU_BUTTON (button));
+}
+
+static void
+downloads_popover_closed_cb (GtkPopover       *popover,
+                             EphyActionBarEnd *self)
+{
+  sync_downloads_visibility (ephy_embed_shell_get_downloads_manager (ephy_embed_shell_get_default ()), self);
+}
+
 void
 ephy_action_bar_end_show_downloads (EphyActionBarEnd *action_bar_end)
 {
+  if (!action_bar_end->downloads_popover) {
+    action_bar_end->downloads_popover = ephy_downloads_popover_new ();
+    gtk_menu_button_set_popover (GTK_MENU_BUTTON (action_bar_end->downloads_button), action_bar_end->downloads_popover);
+  }
+  g_signal_handlers_disconnect_by_func (action_bar_end->downloads_popover, downloads_popover_closed_cb, action_bar_end);
+  g_signal_connect_object (action_bar_end->downloads_popover, "closed", G_CALLBACK (downloads_popover_closed_cb), action_bar_end, 0);
+  g_signal_handlers_disconnect_by_func (action_bar_end->downloads_button, downloads_button_mapped_cb, action_bar_end);
   if (gtk_widget_get_mapped (action_bar_end->downloads_button))
     gtk_menu_button_popup (GTK_MENU_BUTTON (action_bar_end->downloads_button));
+  else
+    g_signal_connect_object (action_bar_end->downloads_button, "map", G_CALLBACK (downloads_button_mapped_cb), action_bar_end, 0);
+  gtk_widget_set_visible (action_bar_end->downloads_revealer, TRUE);
+  gtk_revealer_set_reveal_child (GTK_REVEALER (action_bar_end->downloads_revealer), TRUE);
 }
 
 GtkWidget *

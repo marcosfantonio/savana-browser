@@ -492,11 +492,46 @@ downloads_estimated_progress_cb (EphyDownloadsManager *manager,
 }
 
 static void
+downloads_button_mapped_cb (GtkWidget     *button,
+                            EphyActionBar *self)
+{
+  g_signal_handlers_disconnect_by_func (button, downloads_button_mapped_cb, self);
+  gtk_menu_button_popup (GTK_MENU_BUTTON (button));
+}
+
+static void
+downloads_popover_closed_cb (GtkPopover    *popover,
+                             EphyActionBar *self)
+{
+  if (!ephy_downloads_manager_get_downloads (ephy_embed_shell_get_downloads_manager (ephy_embed_shell_get_default ())) &&
+      gtk_widget_get_parent (self->downloads_button))
+    gtk_box_remove (GTK_BOX (self->toolbar), self->downloads_button);
+}
+
+void
+ephy_action_bar_show_downloads (EphyActionBar *self)
+{
+  if (!self->downloads_popover) {
+    self->downloads_popover = ephy_downloads_popover_new ();
+    gtk_menu_button_set_popover (GTK_MENU_BUTTON (self->downloads_button), self->downloads_popover);
+  }
+  g_signal_handlers_disconnect_by_func (self->downloads_popover, downloads_popover_closed_cb, self);
+  g_signal_connect_object (self->downloads_popover, "closed", G_CALLBACK (downloads_popover_closed_cb), self, 0);
+  g_signal_handlers_disconnect_by_func (self->downloads_button, downloads_button_mapped_cb, self);
+  if (gtk_widget_get_mapped (self->downloads_button))
+    gtk_menu_button_popup (GTK_MENU_BUTTON (self->downloads_button));
+  else
+    g_signal_connect_object (self->downloads_button, "map", G_CALLBACK (downloads_button_mapped_cb), self, 0);
+  if (!gtk_widget_get_parent (self->downloads_button))
+    gtk_box_append (GTK_BOX (self->toolbar), self->downloads_button);
+}
+
+static void
 show_downloads_cb (EphyDownloadsManager *manager,
                    EphyActionBar        *action_bar)
 {
   if (gtk_widget_get_mapped (GTK_WIDGET (action_bar)))
-    gtk_menu_button_popup (GTK_MENU_BUTTON (action_bar->downloads_button));
+    ephy_action_bar_show_downloads (action_bar);
 }
 
 static void

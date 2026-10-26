@@ -190,6 +190,21 @@ find_background_color (GskRenderNode *node)
   }
 }
 
+static GtkWidget *
+find_widget_with_class (GtkWidget  *widget,
+                        const char *css_class)
+{
+  if (gtk_widget_has_css_class (widget, css_class))
+    return widget;
+  for (GtkWidget *child = gtk_widget_get_first_child (widget); child; child = gtk_widget_get_next_sibling (child)) {
+    GtkWidget *found = find_widget_with_class (child, css_class);
+
+    if (found)
+      return found;
+  }
+  return NULL;
+}
+
 static void
 assert_bookmarks_chrome (GtkWidget *widget)
 {
@@ -257,28 +272,25 @@ assert_chrome_transparency (GtkWidget *header,
     AdwOverlaySplitView *split = ADW_OVERLAY_SPLIT_VIEW (gtk_widget_get_template_child (window, EPHY_TYPE_WINDOW, "navigation_split_view"));
     GtkWidget *sidebar = adw_overlay_split_view_get_sidebar (split);
     GtkWidget *tools = gtk_widget_get_last_child (sidebar);
-    GtkWidget *downloads = gtk_widget_get_first_child (tools);
-    GtkWidget *preferences = gtk_widget_get_next_sibling (downloads);
+    GtkWidget *extensions = gtk_widget_get_first_child (tools);
+    GtkWidget *preferences = gtk_widget_get_next_sibling (extensions);
     GtkWidget *entry = GTK_WIDGET (ephy_header_bar_get_title_widget (EPHY_HEADER_BAR (header)));
     GtkWidget *suggestions = GTK_WIDGET (gtk_widget_get_template_child (entry, EPHY_TYPE_LOCATION_ENTRY, "suggestions_popover"));
-    GtkWidget *downloads_popover = GTK_WIDGET (gtk_menu_button_get_popover (GTK_MENU_BUTTON (downloads)));
-    GtkWidget *downloads_scroll = gtk_widget_get_first_child (gtk_popover_get_child (GTK_POPOVER (downloads_popover)));
     g_autoptr (GskRenderNode) sidebar_background = background_node (sidebar);
 
     g_assert_nonnull (sidebar_background);
     g_assert_cmpint (gsk_render_node_get_node_type (sidebar_background), ==, GSK_COLOR_NODE);
     g_assert_true (gdk_rgba_equal (gsk_color_node_get_color (node), gsk_color_node_get_color (sidebar_background)));
-    g_assert_true (GTK_IS_MENU_BUTTON (downloads));
-    g_assert_null (gtk_menu_button_get_label (GTK_MENU_BUTTON (downloads)));
-    g_assert_cmpstr (gtk_menu_button_get_icon_name (GTK_MENU_BUTTON (downloads)), ==, "folder-download-symbolic");
+    g_assert_true (GTK_IS_OVERLAY (sidebar));
+    g_assert_true (gtk_overlay_get_child (GTK_OVERLAY (sidebar)) == g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack"));
+    g_assert_cmpint (gtk_widget_get_valign (tools), ==, GTK_ALIGN_END);
+    g_assert_true (GTK_IS_BUTTON (extensions));
+    g_assert_cmpstr (gtk_button_get_icon_name (GTK_BUTTON (extensions)), ==, "application-x-addon-symbolic");
+    g_assert_false (gtk_widget_get_sensitive (extensions));
+    g_assert_null (find_sidebar_button (sidebar, "Downloads"));
     g_assert_cmpstr (gtk_actionable_get_action_name (GTK_ACTIONABLE (preferences)), ==, "app.preferences");
     g_assert_null (gtk_widget_get_next_sibling (preferences));
-    assert_glass_popover (GTK_WIDGET (gtk_menu_button_get_popover (GTK_MENU_BUTTON (downloads))));
     assert_glass_popover (suggestions);
-    g_assert_cmpint (gtk_scrolled_window_get_min_content_height (GTK_SCROLLED_WINDOW (downloads_scroll)), ==, 132);
-    g_assert_cmpint (gtk_scrolled_window_get_max_content_height (GTK_SCROLLED_WINDOW (downloads_scroll)), ==, 132);
-    g_assert_false (gtk_scrolled_window_get_propagate_natural_height (GTK_SCROLLED_WINDOW (downloads_scroll)));
-    g_assert_false (gtk_scrolled_window_get_overlay_scrolling (GTK_SCROLLED_WINDOW (downloads_scroll)));
   }
 }
 
@@ -578,6 +590,16 @@ test_interface (void)
   gtk_widget_measure (header, GTK_ORIENTATION_VERTICAL, -1, &page_height, NULL, NULL, NULL);
   gtk_widget_measure (share_button, GTK_ORIENTATION_VERTICAL, -1, &page_control_height, NULL, NULL, NULL);
   gtk_widget_measure (url_button, GTK_ORIENTATION_VERTICAL, -1, &page_url_height, NULL, NULL, NULL);
+  {
+    GtkWidget *tab_bar = find_widget_with_class (GTK_WIDGET (window), "savanna-tab-bar");
+    GtkBorder padding;
+
+    g_assert_nonnull (tab_bar);
+    G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+    gtk_style_context_get_padding (gtk_widget_get_style_context (tab_bar), &padding);
+    G_GNUC_END_IGNORE_DEPRECATIONS
+    g_assert_cmpint (padding.bottom, ==, 8);
+  }
   g_assert_cmpint (page_height, <, home_height);
   g_assert_cmpint (page_control_height, ==, home_control_height);
   g_assert_cmpint (page_url_height, ==, home_url_height);
@@ -644,15 +666,31 @@ test_interface (void)
   g_assert_false (gtk_widget_get_visible (revealer));
   g_assert_false (gtk_widget_has_css_class (downloads_icon, "downloads-complete"));
   g_assert_nonnull (ephy_downloads_manager_get_downloads (downloads));
-  gtk_widget_activate_action (GTK_WIDGET (window), "win.show-downloads", NULL);
-  g_assert_true (adw_overlay_split_view_get_show_sidebar (split));
-  gtk_widget_activate_action (GTK_WIDGET (window), "win.toggle-sidebar", NULL);
-  ephy_downloads_manager_remove_download (downloads, download);
-  /* The completion above is synthetic: do not notify the manager a second
-   * time when stopping the underlying test request. */
+  /* Completion is synthetic. Stop the underlying request before yielding to
+   * map the toolbar popup, or its real failure would complete it a second time. */
   g_signal_handlers_disconnect_by_data (download, downloads);
   g_signal_handlers_disconnect_by_data (ephy_download_get_webkit_download (download), downloads);
   ephy_download_cancel (download);
+  gtk_widget_activate_action (GTK_WIDGET (window), "win.show-downloads", NULL);
+  g_assert_false (adw_overlay_split_view_get_show_sidebar (split));
+  {
+    GtkWidget *button = GTK_WIDGET (gtk_widget_get_template_child (GTK_WIDGET (end), EPHY_TYPE_ACTION_BAR_END, "downloads_button"));
+    GtkWidget *popover = GTK_WIDGET (gtk_menu_button_get_popover (GTK_MENU_BUTTON (button)));
+    GtkWidget *scroll = gtk_widget_get_first_child (gtk_popover_get_child (GTK_POPOVER (popover)));
+
+    g_signal_connect_swapped (popover, "map", G_CALLBACK (g_main_loop_quit), loop);
+    if (!gtk_widget_get_mapped (popover))
+      g_main_loop_run (loop);
+    g_signal_handlers_disconnect_by_data (popover, loop);
+    g_assert_true (gtk_widget_get_visible (revealer));
+    assert_glass_popover (popover);
+    g_assert_cmpint (gtk_scrolled_window_get_min_content_height (GTK_SCROLLED_WINDOW (scroll)), ==, 132);
+    g_assert_cmpint (gtk_scrolled_window_get_max_content_height (GTK_SCROLLED_WINDOW (scroll)), ==, 132);
+    g_assert_false (gtk_scrolled_window_get_propagate_natural_height (GTK_SCROLLED_WINDOW (scroll)));
+    g_assert_false (gtk_scrolled_window_get_overlay_scrolling (GTK_SCROLLED_WINDOW (scroll)));
+    gtk_popover_popdown (GTK_POPOVER (popover));
+  }
+  ephy_downloads_manager_remove_download (downloads, download);
   g_assert_false (gtk_revealer_get_reveal_child (GTK_REVEALER (revealer)));
   g_assert_false (gtk_widget_get_visible (revealer));
   gtk_widget_measure (GTK_WIDGET (end), GTK_ORIENTATION_HORIZONTAL, -1, &download_width, NULL, NULL, NULL);
@@ -665,6 +703,27 @@ test_interface (void)
   g_signal_connect (ephy_embed_get_web_view (embed), "load-changed", G_CALLBACK (populated_page_loaded_cb), loop);
   ephy_web_view_load_url (ephy_embed_get_web_view (embed), "ephy-about:overview");
   g_main_loop_run (loop);
+  {
+    GtkWidget *sidebar = adw_overlay_split_view_get_sidebar (split);
+    GtkStack *stack = g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack");
+    GtkWidget *pane;
+    GtkWidget *toolbar;
+    GtkWidget *toast;
+    GtkWidget *content;
+
+    g_action_group_activate_action (G_ACTION_GROUP (window), "bookmarks", NULL);
+    g_timeout_add_once (100, session_save_wait_cb, loop);
+    g_main_loop_run (loop);
+    pane = gtk_stack_get_visible_child (stack);
+    toolbar = GTK_WIDGET (gtk_widget_get_template_child (pane, EPHY_TYPE_BOOKMARKS_DIALOG, "toolbar_view"));
+    toast = GTK_WIDGET (gtk_widget_get_template_child (pane, EPHY_TYPE_BOOKMARKS_DIALOG, "toast_overlay"));
+    content = gtk_widget_get_first_child (adw_toast_overlay_get_child (ADW_TOAST_OVERLAY (toast)));
+    g_assert_cmpint (gtk_widget_get_height (pane), >, 0);
+    g_assert_cmpint (gtk_widget_get_height (pane), ==, gtk_widget_get_height (sidebar));
+    g_assert_cmpint (gtk_widget_get_height (toolbar), ==, gtk_widget_get_height (pane));
+    g_assert_cmpint (gtk_widget_get_valign (content), ==, GTK_ALIGN_FILL);
+    g_action_group_activate_action (G_ACTION_GROUP (window), "bookmarks", NULL);
+  }
   {
     GtkWidget *sync = find_sidebar_button (adw_overlay_split_view_get_sidebar (split), "Connect Devices…");
     GtkWidget *dialog;

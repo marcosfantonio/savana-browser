@@ -94,6 +94,12 @@ bar: window controls and sidebar collapse belong only to the main toolbar.
 Back returns to sidebar navigation; editing is available in the options menu.
 Search sits directly below the header and the bookmark list scrolls within the
 remaining pane height, without a second oversized title.
+The pane fills the sidebar height. Its stack is the main child of a GTK overlay;
+Extensions (a disabled placeholder) and Preferences float at the bottom over
+the same surface, rather than shortening the bookmarks container. Scrolling
+content reserves bottom space so its last row remains reachable above the tools.
+Outside the start page, compact tab chrome keeps 8px of padding below the tabs;
+only surrounding whitespace changes, not button or tab sizes.
 
 ## Downloads and popovers
 
@@ -102,6 +108,10 @@ size. The popup is deliberately wider, height-bounded, and internally
 scrollable: new rows should not grow it without limit. Global popover surface
 styling is in `src/resources/savanna.css`; keep the readable inner content
 surface separate from the translucent outer shell.
+Downloads are available from the toolbar and the existing menu/shortcut actions,
+not the sidebar footer. Explicitly opening downloads temporarily reveals the
+toolbar button, including when only previously opened downloads remain; closing
+the popup restores the normal activity-based button visibility.
 
 ## Tests and validation
 

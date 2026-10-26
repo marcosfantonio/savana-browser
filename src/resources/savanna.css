@@ -271,7 +271,7 @@ popover.suggestions listview > row > grid {
   margin-top: 0;
   margin-bottom: 0;
 }
-.savanna-compact .savanna-tab-bar { padding-bottom: 3px; }
+.savanna-compact .savanna-tab-bar { padding-bottom: 8px; }
 .savanna-header-bar image.downloads-complete { color: var(--accent-color); }
 
 /* These rules must outrank the application palette and user GTK theme.
@@ -379,11 +379,6 @@ popover.suggestions listview > row > grid {
   border-radius: 0;
   margin: 0;
   padding: 0;
-}
-.savanna-window.savanna-surface .savanna-sidebar-downloads > button {
-  background: transparent;
-  font-weight: 400;
-  box-shadow: none;
 }
 .savanna-window.savanna-surface .savanna-sidebar {
   background: transparent;

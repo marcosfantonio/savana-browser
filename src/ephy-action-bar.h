@@ -38,5 +38,6 @@ EphyActionBar      *ephy_action_bar_new                  (EphyWindow *window);
 
 void                ephy_action_bar_set_zoom_level       (EphyActionBar *self,
                                                           const char    *zoom_level);
+void                ephy_action_bar_show_downloads       (EphyActionBar *self);
 
 G_END_DECLS
