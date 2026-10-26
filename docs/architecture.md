@@ -85,6 +85,22 @@ Missing descriptions remain hidden rather than showing invented summaries.
 Start-page tiles embed cached WebKit favicons as PNG data URIs and refresh when
 the asynchronous icon becomes available; a local globe replaces missing icons,
 never a third-party favicon service. Both panel icon sizes share that cache.
+`lib/ephy-favicon-helpers.c` builds the same filled icon tile for the start page
+and the large sidebar icon (the small URL icon remains unchanged). It samples
+the first visible pixels entering each row/column from all four sides, ignoring
+transparent margins and preferring alpha >= 192 over antialiasing/shadows. An
+alpha-weighted 4-bit/channel histogram selects the dominant exterior color,
+not an average of the logo interior. Translucent-only icons retry at alpha 32;
+fully transparent icons keep their fallback. The icon is centered, aspect-ratio
+preserved, on a square of that color (100px on the start page, 48px in the
+sidebar). Small favicons are never enlarged; larger images are downsampled
+with the high-quality filter. Nearly monochromatic icons (95% alpha-weighted
+visible pixels within 32 RGB levels of the exterior color) are rendered white
+over their original color, preserving their alpha/silhouette. Near-white icons
+use a dark glyph instead so they remain visible. Multicolor icons are unchanged.
+Rounded corners (20% radius) are clipped into the actual tile alpha with
+antialiased edges, not just styled on GtkImage. Tiles are cached per target size
+on the source texture, not persisted separately, and update with favicon changes.
 The bookmarks view and its nested toolbar/lists are transparent: only the parent
 sidebar pane paints the glass, matching navigation on the start page and the
 solid sidebar surface on regular pages.
@@ -98,8 +114,10 @@ The pane fills the sidebar height. Its stack is the main child of a GTK overlay;
 Extensions (a disabled placeholder) and Preferences float at the bottom over
 the same surface, rather than shortening the bookmarks container. Scrolling
 content reserves bottom space so its last row remains reachable above the tools.
-Outside the start page, compact tab chrome keeps 8px of padding below the tabs;
+Outside the start page, compact tab chrome keeps 6px of padding below the tabs;
 only surrounding whitespace changes, not button or tab sizes.
+The tab bar uses libadwaita's inverted layout to put its native close buttons
+on the left; do not reparent private tab widgets to move them.
 
 ## Downloads and popovers
 

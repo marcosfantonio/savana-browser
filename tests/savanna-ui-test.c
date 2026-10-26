@@ -11,6 +11,8 @@
 #include "ephy-downloads-manager.h"
 #include "ephy-download.h"
 #include "ephy-file-helpers.h"
+#include "ephy-favicon-helpers.h"
+#include "ephy-pixbuf-utils.h"
 #include "ephy-header-bar.h"
 #include "ephy-history-service.h"
 #include "ephy-fullscreen-box.h"
@@ -402,6 +404,170 @@ preview_description_cb (EphyBookmark *bookmark,
 }
 
 static void
+test_favicon_tile (void)
+{
+  guchar pixels[16 * 16 * 4] = { 0 };
+  g_autoptr (GBytes) bytes = NULL;
+  g_autoptr (GdkTexture) texture = NULL;
+  g_autoptr (GdkTexture) tile = NULL;
+  g_autoptr (GdkTexture) cached = NULL;
+  g_autoptr (GdkPixbuf) result = NULL;
+  GdkRGBA color;
+  const guchar *corner;
+
+  for (int y = 0; y < 16; y++) {
+    for (int x = 0; x < 16; x++) {
+      guchar *pixel = pixels + (y * 16 + x) * 4;
+
+      /* Hidden RGB and a translucent red halo must not pollute the color. */
+      pixel[0] = 255;
+      if (x >= 2 && x <= 13 && y >= 2 && y <= 13)
+        pixel[3] = 40;
+      if (x >= 3 && x <= 12 && y >= 3 && y <= 12) {
+        pixel[0] = 0;
+        pixel[1] = 64;
+        pixel[2] = 200;
+        pixel[3] = 255;
+      }
+      /* The interior is larger than the blue perimeter, but is not sampled. */
+      if (x >= 4 && x <= 11 && y >= 4 && y <= 11) {
+        pixel[0] = 255;
+        pixel[1] = 128;
+        pixel[2] = 0;
+      }
+      if (x >= 7 && x <= 8 && y >= 7 && y <= 8)
+        pixel[3] = 0;
+    }
+  }
+  bytes = g_bytes_new (pixels, sizeof pixels);
+  texture = gdk_memory_texture_new (16, 16, GDK_MEMORY_R8G8B8A8, bytes, 16 * 4);
+  g_assert_true (ephy_favicon_get_edge_color (texture, &color));
+  g_assert_cmpfloat_with_epsilon (color.red, 0, .001);
+  g_assert_cmpfloat_with_epsilon (color.green, 64.0 / 255, .001);
+  g_assert_cmpfloat_with_epsilon (color.blue, 200.0 / 255, .001);
+  g_assert_cmpfloat (color.alpha, ==, 1);
+  tile = ephy_favicon_create_tile (texture, 128);
+  cached = ephy_favicon_create_tile (texture, 128);
+  g_assert_true (tile == cached);
+  g_assert_cmpint (gdk_texture_get_width (tile), ==, 128);
+  g_assert_cmpint (gdk_texture_get_height (tile), ==, 128);
+  result = ephy_texture_to_pixbuf (tile, TRUE);
+  corner = gdk_pixbuf_read_pixels (result);
+  g_assert_cmpint (corner[3], ==, 0);
+  corner += 64 * 4;
+  g_assert_cmpint (corner[0], ==, 0);
+  g_assert_cmpint (corner[1], ==, 64);
+  g_assert_cmpint (corner[2], ==, 200);
+  g_assert_cmpint (corner[3], ==, 255);
+  /* A hole in the logo is filled with the same exterior color. */
+  corner += 64 * gdk_pixbuf_get_rowstride (result);
+  g_assert_cmpint (corner[0], ==, 0);
+  g_assert_cmpint (corner[1], ==, 64);
+  g_assert_cmpint (corner[2], ==, 200);
+
+  /* The original multicolor 16px drawing is centered without enlargement. */
+  corner = gdk_pixbuf_read_pixels (result) + 62 * gdk_pixbuf_get_rowstride (result) + 62 * 4;
+  g_assert_cmpint (corner[0], ==, 255);
+  g_assert_cmpint (corner[1], ==, 128);
+  g_assert_cmpint (corner[2], ==, 0);
+
+  for (guint pass = 0; pass < 3; pass++) {
+    g_autoptr (GBytes) sample_bytes = NULL;
+    g_autoptr (GdkTexture) sample = NULL;
+    g_autoptr (GdkTexture) sample_tile = NULL;
+
+    memset (pixels, 255, sizeof pixels);
+    for (guint i = 0; i < G_N_ELEMENTS (pixels) / 4; i++)
+      pixels[i * 4 + 3] = pass == 0 ? 255 : pass == 1 ? 96 : 0;
+    sample_bytes = g_bytes_new (pixels, sizeof pixels);
+    sample = gdk_memory_texture_new (16, 16, GDK_MEMORY_R8G8B8A8, sample_bytes, 16 * 4);
+    if (pass == 2) {
+      g_assert_false (ephy_favicon_get_edge_color (sample, &color));
+      sample_tile = ephy_favicon_create_tile (sample, 128);
+      g_assert_true (sample_tile == sample);
+    } else {
+      g_autoptr (GdkPixbuf) white_tile = NULL;
+      const guchar *center;
+
+      g_assert_true (ephy_favicon_get_edge_color (sample, &color));
+      g_assert_cmpfloat_with_epsilon (color.red, 1, .001);
+      g_assert_cmpfloat_with_epsilon (color.green, 1, .001);
+      g_assert_cmpfloat_with_epsilon (color.blue, 1, .001);
+      sample_tile = ephy_favicon_create_tile (sample, 48);
+      white_tile = ephy_texture_to_pixbuf (sample_tile, TRUE);
+      center = gdk_pixbuf_read_pixels (white_tile) + 24 * gdk_pixbuf_get_rowstride (white_tile) + 24 * 4;
+      g_assert_cmpint (center[0], <, 255);
+      g_assert_cmpint (center[0], ==, center[1]);
+      g_assert_cmpint (center[1], ==, center[2]);
+    }
+  }
+}
+
+static void
+test_favicon_monochrome_tile (void)
+{
+  guchar pixels[16 * 8 * 4] = { 0 };
+  g_autoptr (GBytes) bytes = NULL;
+  g_autoptr (GdkTexture) texture = NULL;
+  g_autoptr (GdkPixbuf) original = NULL;
+
+  for (int y = 2; y < 6; y++) {
+    for (int x = 4; x < 12; x++) {
+      guchar *pixel = pixels + (y * 16 + x) * 4;
+
+      pixel[1] = 128;
+      pixel[3] = x == 7 && y == 3 ? 0 : x == 6 && y == 3 ? 128 : 255;
+    }
+  }
+  bytes = g_bytes_new (pixels, sizeof pixels);
+  texture = gdk_memory_texture_new (16, 8, GDK_MEMORY_R8G8B8A8, bytes, 16 * 4);
+
+  for (guint i = 0; i < 2; i++) {
+    int size = i == 0 ? 48 : 100;
+    int left = (size - 16) / 2;
+    int top = (size - 8) / 2;
+    g_autoptr (GdkTexture) tile = ephy_favicon_create_tile (texture, size);
+    g_autoptr (GdkTexture) cached = ephy_favicon_create_tile (texture, size);
+    g_autoptr (GdkPixbuf) result = ephy_texture_to_pixbuf (tile, TRUE);
+    const guchar *data = gdk_pixbuf_read_pixels (result);
+    int stride = gdk_pixbuf_get_rowstride (result);
+    guint white_pixels = 0;
+    guint antialiased_pixels = 0;
+    const guchar *pixel;
+
+    g_assert_true (tile == cached);
+    g_assert_cmpint (gdk_texture_get_width (tile), ==, size);
+    g_assert_cmpint (gdk_texture_get_height (tile), ==, size);
+    g_assert_cmpint (data[3], ==, 0);
+    g_assert_cmpint (data[(size - 1) * 4 + 3], ==, 0);
+    g_assert_cmpint (data[(size - 1) * stride + 3], ==, 0);
+    g_assert_cmpint (data[(size - 1) * stride + (size - 1) * 4 + 3], ==, 0);
+    for (int y = 0; y < size; y++) {
+      for (int x = 0; x < size; x++) {
+        pixel = data + y * stride + x * 4;
+        white_pixels += pixel[0] == 255 && pixel[1] == 255 && pixel[2] == 255 && pixel[3] == 255;
+        antialiased_pixels += pixel[3] > 0 && pixel[3] < 255;
+      }
+    }
+    /* Exactly the original 30 opaque pixels turn white, at either tile size.
+     * No stretching, blurring or extra opaque pixels around the silhouette. */
+    g_assert_cmpuint (white_pixels, ==, 30);
+    g_assert_cmpuint (antialiased_pixels, >, 0);
+    pixel = data + (top + 3) * stride + (left + 6) * 4;
+    g_assert_cmpint (pixel[0], ==, 128);
+    g_assert_cmpint (ABS (pixel[1] - 192), <=, 1);
+    g_assert_cmpint (pixel[2], ==, 128);
+    pixel = data + (top + 3) * stride + (left + 7) * 4;
+    g_assert_cmpint (pixel[0], ==, 0);
+    g_assert_cmpint (pixel[1], ==, 128);
+    g_assert_cmpint (pixel[2], ==, 0);
+  }
+  original = ephy_texture_to_pixbuf (texture, TRUE);
+  g_assert_cmpmem (gdk_pixbuf_read_pixels (original) + 2 * gdk_pixbuf_get_rowstride (original) + 4 * 4, 4,
+                   pixels + (2 * 16 + 4) * 4, 4);
+}
+
+static void
 test_bookmark_preview (void)
 {
   g_autoptr (EphyBookmark) bookmark = ephy_bookmark_new ("https://preview.test/", "Preview", NULL, "preview");
@@ -598,7 +764,8 @@ test_interface (void)
     G_GNUC_BEGIN_IGNORE_DEPRECATIONS
     gtk_style_context_get_padding (gtk_widget_get_style_context (tab_bar), &padding);
     G_GNUC_END_IGNORE_DEPRECATIONS
-    g_assert_cmpint (padding.bottom, ==, 8);
+    g_assert_cmpint (padding.bottom, ==, 6);
+    g_assert_true (adw_tab_bar_get_inverted (ADW_TAB_BAR (tab_bar)));
   }
   g_assert_cmpint (page_height, <, home_height);
   g_assert_cmpint (page_control_height, ==, home_control_height);
@@ -800,6 +967,8 @@ main (int argc, char **argv)
   g_assert_true (g_application_register (G_APPLICATION (ephy_shell_get_default ()), NULL, NULL));
   g_test_add_func ("/savanna/interface", test_interface);
   g_test_add_func ("/savanna/bookmark-preview", test_bookmark_preview);
+  g_test_add_func ("/savanna/favicon-tile", test_favicon_tile);
+  g_test_add_func ("/savanna/favicon-monochrome-tile", test_favicon_monochrome_tile);
   result = g_test_run ();
   g_object_unref (ephy_shell_get_default ());
   ephy_file_helpers_shutdown ();

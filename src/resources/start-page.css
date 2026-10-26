@@ -103,7 +103,7 @@ html[data-theme="dark"] .customize-panel { background: #303030f2; border-color: 
 html[data-theme="dark"] body:has(#show-wallpaper:not(:checked)) { background: #252525; }
 .start-logo { border-radius: 16px; }
 .user-favorite { font-family: inherit; font-size: 2.6em; color: #765339; background: linear-gradient(135deg, #f6e5bd, #d7b38c); }
-.favorite-icon { width: 72%; height: 72%; object-fit: contain; border-radius: 12px; }
+.favorite-icon { width: 100%; height: 100%; object-fit: contain; border-radius: inherit; }
 .user-suggestion > span { background: linear-gradient(135deg, #c7deeb, #e7e6d6); color: #637b89; font-size: 3em; }
 .empty-state { grid-column: 1 / -1; color: #626b70; line-height: 1.6; }
 .favorite > span:last-child { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -198,7 +198,7 @@ popover.suggestions listview > row > grid {
   padding: 12px;
 }
 
-/* Use the native close button, positioned on the right by AdwTabView. */
+/* AdwTabBar's inverted layout puts the native close button on the left. */
 .savanna-tab-bar tab .tab-close-button {
   opacity: 0;
   min-width: 16px;
@@ -271,7 +271,7 @@ popover.suggestions listview > row > grid {
   margin-top: 0;
   margin-bottom: 0;
 }
-.savanna-compact .savanna-tab-bar { padding-bottom: 8px; }
+.savanna-compact .savanna-tab-bar { padding-bottom: 6px; }
 .savanna-header-bar image.downloads-complete { color: var(--accent-color); }
 
 /* These rules must outrank the application palette and user GTK theme.

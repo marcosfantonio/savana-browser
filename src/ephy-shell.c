@@ -32,6 +32,7 @@
 #include "ephy-desktop-utils.h"
 #include "ephy-embed-container.h"
 #include "ephy-embed-utils.h"
+#include "ephy-favicon-helpers.h"
 #include "ephy-file-helpers.h"
 #include "ephy-firefox-sync-dialog.h"
 #include "ephy-header-bar.h"
@@ -656,7 +657,8 @@ start_page_bookmarks_cb (EphyShell *shell)
     ephy_bookmark_start_loading_icon (bookmark);
     icon = ephy_bookmark_get_icon (bookmark);
     if (GDK_IS_TEXTURE (icon)) {
-      g_autoptr (GBytes) png = gdk_texture_save_to_png_bytes (GDK_TEXTURE (icon));
+      g_autoptr (GdkTexture) tile = ephy_favicon_create_tile (GDK_TEXTURE (icon), 100);
+      g_autoptr (GBytes) png = gdk_texture_save_to_png_bytes (tile);
       g_autofree char *base64 = g_base64_encode (g_bytes_get_data (png, NULL), g_bytes_get_size (png));
 
       icon_uri = g_strconcat ("data:image/png;base64,", base64, NULL);

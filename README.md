@@ -1,27 +1,34 @@
 # Savanna
 
-**Savanna** é um navegador para Linux baseado no GNOME Web (Epiphany) e no
-WebKitGTK. Este projeto mantém a base de navegação do Epiphany e desenvolve uma
-interface própria, com grupos de abas, barra lateral, conteúdo salvo e suporte
-ao menu global do KDE Plasma.
+**Savanna** is a Linux web browser based on GNOME Web (Epiphany) and WebKitGTK. It builds on Epiphany's browsing engine while providing its own interface, with tab groups, a sidebar, saved content, and KDE Plasma global menu support.
 
-O programa instalado por este projeto se chama **`savanna`**. Ele usa um ID de
-aplicativo próprio (`com.savanna.Browser`) e não instala um executável chamado
-`epiphany`.
+The installed application is called **`savanna`**. It has its own application ID (`com.savanna.Browser`) and does not install an executable named `epiphany`.
 
-## Instalação fácil no Linux
+## Screenshots
 
-### CachyOS e Arch Linux
+| Browser | Sidebar |
+| --- | --- |
+| ![Savanna browser](screenshots/screen1.png) | ![Savanna sidebar](screenshots/sidebar.png) |
 
-Instale as ferramentas de compilação e as dependências de interface/WebKit:
+| Screenshot | Screenshot | Screenshot |
+| --- | --- | --- |
+| ![Savanna screenshot 2](screenshots/screen2.png) | ![Savanna screenshot 3](screenshots/screen3.png) | ![Savanna screenshot 4](screenshots/screen4.png) |
+| ![Savanna screenshot 5](screenshots/screen5.png) | ![Savanna screenshot 6](screenshots/screen6.png) | ![Savanna screenshot 7](screenshots/screen7.png) |
+
+![Savanna screenshot 8](screenshots/screen8.png)
+
+## Easy Linux installation
+
+### CachyOS and Arch Linux
+
+Install the build tools and GTK/WebKit dependencies:
 
 ```sh
 sudo pacman -S --needed base-devel git meson ninja pkgconf \
   gtk4 libadwaita webkitgtk-6.0 dbusmenu-glib wayland libx11
 ```
 
-Clone o projeto, compile e instale apenas para seu usuário (não precisa de
-`sudo` na instalação):
+Clone, build, and install for your user (installation does not require `sudo`):
 
 ```sh
 git clone https://github.com/marcosfantonio/savanna.git savanna-browser
@@ -30,61 +37,44 @@ meson setup build --prefix="$HOME/.local" -Ddeveloper_mode=true
 meson install -C build --quiet
 ```
 
-Se o Meson informar que falta uma dependência, instale no `pacman` o pacote de
-desenvolvimento correspondente e rode novamente `meson setup`/`meson install`.
-O Meson mostra no resumo quais integrações de menu global foram compiladas.
+If Meson reports a missing dependency, install the corresponding development package with `pacman` and run `meson setup`/`meson install` again. Meson lists the global menu integrations enabled in its summary.
 
-Abra o navegador pelo terminal:
+Launch the browser from a terminal:
 
 ```sh
 ~/.local/bin/savanna
 ```
 
-O arquivo `.desktop` instalado também registra o Savanna no lançador de
-aplicativos do Plasma. Se o terminal não encontrar comandos instalados em
-`~/.local/bin`, adicione essa pasta ao `PATH` ou use o caminho completo acima.
+The installed `.desktop` file also adds Savanna to the Plasma application launcher. If commands installed in `~/.local/bin` are not on your `PATH`, add that directory or use the full path shown above.
 
-### Outras distribuições
+### Other distributions
 
-Instale as dependências de desenvolvimento do GTK 4, libadwaita, WebKitGTK 6,
-Meson/Ninja e as bibliotecas exigidas pelo projeto; os nomes dos pacotes variam
-entre distribuições. Em seguida, use os mesmos comandos de clone, configuração
-e instalação acima. O Meson interrompe a configuração e identifica qualquer
-dependência ausente.
+Install the development dependencies for GTK 4, libadwaita, WebKitGTK 6, Meson/Ninja, and the libraries required by the project; package names vary by distribution. Then use the same clone, setup, and installation commands above. Meson will stop during configuration and identify any missing dependency.
 
-## Compilar novamente
+## Rebuild
 
-Na pasta do repositório:
+From the repository directory, run:
 
 ```sh
 meson install -C build --quiet
 ```
 
-Esse comando recompila o que mudou e instala novamente em `~/.local`. Para
-executar os testes da interface:
+This recompiles changed files and installs the application again in `~/.local`. To run the interface tests:
 
 ```sh
 meson test -C build 'Savanna interface test' --print-errorlogs
 ```
 
-## Recursos
+## Features
 
-- Grupos persistentes de abas na barra lateral.
-- Histórico, favoritos e conteúdo salvo acessíveis pela interface.
-- Integração de abas de dispositivos via Firefox Sync.
-- Menu global no Plasma via DBusMenu em Wayland e X11/XWayland, quando o painel
-  global-menu estiver habilitado.
-- Popover de downloads com altura limitada e rolagem própria.
+- Persistent tab groups in the sidebar.
+- History, bookmarks, and saved content accessible from the interface.
+- Device tab integration through Firefox Sync.
+- Plasma global menu integration via DBusMenu on Wayland and X11/XWayland, when the global-menu panel is enabled.
+- A height-limited downloads popover with its own scrolling.
 
-Consulte [`docs/global-menu.md`](docs/global-menu.md) para detalhes de
-compatibilidade e diagnóstico do menu global, e
-[`docs/architecture.md`](docs/architecture.md) para a organização da interface
-e orientações para alterações futuras. As instruções destinadas a agentes de
-código estão em [`AGENTS.md`](AGENTS.md).
+See [`docs/global-menu.md`](docs/global-menu.md) for global menu compatibility and troubleshooting, and [`docs/architecture.md`](docs/architecture.md) for UI organization and guidance for future changes. Coding agent instructions are in [`AGENTS.md`](AGENTS.md).
 
-## Desenvolvimento
+## Development
 
-Savanna é software livre, licenciado sob GPL-3.0-or-later. A maior parte dos
-módulos ainda usa os nomes internos `ephy-*` da base Epiphany. Mudanças na
-interface do Savanna e nas integrações específicas devem seguir a arquitetura e
-os comportamentos descritos na documentação acima.
+Savanna is free software licensed under GPL-3.0-or-later. Most modules still use the upstream Epiphany `ephy-*` internal names. Changes to Savanna's interface and project-specific integrations should follow the architecture and behaviors documented above.

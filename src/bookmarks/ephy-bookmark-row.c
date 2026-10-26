@@ -29,6 +29,7 @@
 #include "ephy-bookmarks-manager.h"
 #include "ephy-embed-container.h"
 #include "ephy-embed.h"
+#include "ephy-favicon-helpers.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
 
@@ -297,7 +298,9 @@ transform_bookmark_icon (GBinding     *binding,
 {
   GObject *icon = g_value_get_object (from_value);
 
-  if (icon)
+  if (GDK_IS_TEXTURE (icon) && GPOINTER_TO_INT (user_data))
+    g_value_take_object (to_value, ephy_favicon_create_tile (GDK_TEXTURE (icon), 48));
+  else if (icon)
     g_value_set_object (to_value, icon);
   else
     g_value_take_object (to_value, g_themed_icon_new ("ephy-globe-alt2-symbolic"));
@@ -326,7 +329,7 @@ ephy_bookmark_row_constructed (GObject *object)
   g_object_bind_property_full (self->bookmark, "icon",
                                self->favicon_image, "gicon",
                                G_BINDING_SYNC_CREATE,
-                               transform_bookmark_icon, NULL, NULL, NULL);
+                               transform_bookmark_icon, NULL, GINT_TO_POINTER (TRUE), NULL);
   g_object_bind_property_full (self->bookmark, "icon",
                                self->url_favicon_image, "gicon",
                                G_BINDING_SYNC_CREATE,

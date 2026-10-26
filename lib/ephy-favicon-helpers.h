@@ -26,5 +26,7 @@
 G_BEGIN_DECLS
 
 GIcon *ephy_favicon_get_from_texture_scaled (GdkTexture *texture, int width, int height);
+gboolean ephy_favicon_get_edge_color (GdkTexture *texture, GdkRGBA *color);
+GdkTexture *ephy_favicon_create_tile (GdkTexture *texture, int size);
 
 G_END_DECLS
