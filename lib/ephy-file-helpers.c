@@ -638,13 +638,27 @@ ephy_file_launch_uri_handler (GFile                        *file,
    * becomes the responsibility of the portal in this case anyway.
    */
   if (xdp_portal_running_under_sandbox ()) {
-    g_autofree char *uri = g_file_get_uri (file);
+    g_autoptr (GFile) containing_directory = NULL;
+    g_autofree char *uri = NULL;
     EphyOpenUriFlags openUriFlags = EPHY_OPEN_URI_FLAGS_NONE;
 
-    if (type == EPHY_FILE_LAUNCH_URI_HANDLER_DIRECTORY)
+    if (type == EPHY_FILE_LAUNCH_URI_HANDLER_DIRECTORY) {
+      GFile *directory = file;
+
+      /* OpenDirectory requires a directory URI. For “show in folder” the
+       * target is a file, so open its parent directory instead. */
+      if (g_file_query_file_type (file, G_FILE_QUERY_INFO_NONE, NULL) != G_FILE_TYPE_DIRECTORY) {
+        containing_directory = g_file_get_parent (file);
+        if (containing_directory)
+          directory = containing_directory;
+      }
+
+      uri = g_file_get_uri (directory);
       ephy_open_directory_via_flatpak_portal (uri, openUriFlags);
-    else
+    } else {
+      uri = g_file_get_uri (file);
       ephy_open_uri_via_flatpak_portal (uri, openUriFlags);
+    }
     return TRUE;
   }
 
@@ -688,7 +702,18 @@ gboolean
 ephy_file_browse_to (GFile      *file,
                      GdkDisplay *display)
 {
-  return ephy_file_launch_uri_handler (file, "inode/directory", display, EPHY_FILE_LAUNCH_URI_HANDLER_DIRECTORY);
+  g_autoptr (GFile) directory = NULL;
+  GFile *target = file;
+
+  /* Open the containing directory for files, including downloads that have
+   * not been created on disk yet. Open directories themselves as-is. */
+  if (g_file_query_file_type (file, G_FILE_QUERY_INFO_NONE, NULL) != G_FILE_TYPE_DIRECTORY) {
+    directory = g_file_get_parent (file);
+    if (directory)
+      target = directory;
+  }
+
+  return ephy_file_launch_uri_handler (target, "inode/directory", display, EPHY_FILE_LAUNCH_URI_HANDLER_DIRECTORY);
 }
 
 /**

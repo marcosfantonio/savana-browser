@@ -173,6 +173,10 @@ Downloads are available from the toolbar and the existing menu/shortcut actions,
 not the sidebar footer. Explicitly opening downloads temporarily reveals the
 toolbar button, including when only previously opened downloads remain; closing
 the popup restores the normal activity-based button visibility.
+“Show in folder” opens a download's containing directory (including for an
+in-progress download whose file is not yet present). Savana passes a directory
+URI to the desktop portal's `OpenDirectory` operation, which cannot select a
+file within it. A directory passed directly to this action is opened as-is.
 
 ## Tests and validation
 
