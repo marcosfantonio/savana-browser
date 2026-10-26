@@ -32,21 +32,22 @@ change.
 
 - `src/ephy-window.c`: browser-window setup, action registration, toolbar and
   window-level behavior. Window actions generally use the `win.` namespace.
-- `src/ephy-main.c`: process-start graphics workarounds that must be set before
-  GTK/WebKit initialize. On KDE/Plasma Wayland with the NVIDIA kernel module,
-  Savanna selects TextureMapper composition, shared-memory page-frame transport,
-  disables WebKit's GL video sink, disables NVIDIA explicit sync, and excludes
-  AV1 decoder plugins from GStreamer selection. These settings are scoped to
-  Savanna, not system-wide. GTK/WebKit page acceleration and non-AV1 video
-  decoders remain enabled. Existing values of each variable are respected.
-  Do not turn off WebKit hardware acceleration globally.
+- `src/ephy-main.c`: process-start graphics workarounds, enabled only by the
+  user's “Fix para placas NVIDIA” preference in General → Web Content. The
+  preference selects TextureMapper composition, shared-memory page-frame
+  transport, disables WebKit's GL video sink and NVIDIA explicit sync, and
+  excludes AV1 decoder plugins from GStreamer selection. It is scoped to
+  Savanna; GTK/WebKit page acceleration and non-AV1 video decoders remain
+  enabled. It takes effect on restart. Do not turn off WebKit hardware
+  acceleration globally.
   GTK must be initialized before constructing the shell: shell construction
   creates the WebKit context, whose acceleration probe needs a default display.
   In particular, `WEBKIT_DMABUF_RENDERER_FORCE_SHM=1` bypasses the normal DMABUF
   display setup and requires GTK initialization before WebKit context
   construction. SHM was verified to stop page-content flicker on the affected
   NVIDIA setup; disabling the GL video sink was verified to fix green H.264
-  video output.
+  video output. This compatibility option is opt-in, not automatically
+  detected or applied to other users.
 - `src/ephy-shell.c`: application/window lifecycle, application actions, and
   the point where Savanna's global menu and per-browser-window behavior are
   attached. It filters auxiliary windows where browser-only logic is required.
@@ -58,7 +59,9 @@ change.
   enabled/check state and invokes the corresponding GAction. A model item
   intentionally omitted from the global menu must not be reintroduced here.
 - `src/resources/savanna.css`: application chrome styling, transparency,
-  sidebar and popup appearance. All browser popover outer surfaces are cleared
+  sidebar and popup appearance. Light-mode chrome on regular pages mirrors the
+  dark-mode surfaces, border placement and shadow behavior with a light palette;
+  the start page retains the glass treatment. All browser popover outer surfaces are cleared
   here to avoid opaque rectangular shadows behind the rounded content. The
   bookmarks view receives `savanna-bookmarks` from `ephy-window.c` so its
   pane can share the navigation sidebar surface.

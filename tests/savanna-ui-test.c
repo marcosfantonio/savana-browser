@@ -25,6 +25,7 @@
 #include "ephy-tab-view.h"
 #include "ephy-window.h"
 #include "prefs-appearance-page.h"
+#include "prefs-general-page.h"
 
 #if HAVE_DBUSMENU
 typedef struct {
@@ -620,6 +621,8 @@ test_interface (void)
   EphyActionBarEnd *end;
   GtkWidget *revealer;
   GtkWidget *appearance;
+  GtkWidget *general;
+  GtkWidget *nvidia_workaround_row;
   AdwComboRow *theme_row;
   GdkRGBA header_color;
   g_autoptr (EphyHistoryPageVisit) visit = NULL;
@@ -649,6 +652,18 @@ test_interface (void)
   adw_combo_row_set_selected (theme_row, 2);
   g_assert_true (adw_style_manager_get_dark (adw_style_manager_get_default ()));
   g_object_unref (appearance);
+
+  general = g_object_ref_sink (g_object_new (EPHY_TYPE_PREFS_GENERAL_PAGE, NULL));
+  nvidia_workaround_row = GTK_WIDGET (gtk_widget_get_template_child (general,
+                                                                    EPHY_TYPE_PREFS_GENERAL_PAGE,
+                                                                    "nvidia_workaround_row"));
+  g_assert_nonnull (nvidia_workaround_row);
+  g_assert_false (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND));
+  adw_switch_row_set_active (ADW_SWITCH_ROW (nvidia_workaround_row), TRUE);
+  g_assert_true (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND));
+  adw_switch_row_set_active (ADW_SWITCH_ROW (nvidia_workaround_row), FALSE);
+  g_assert_false (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND));
+  g_object_unref (general);
 
   ephy_bookmarks_manager_add_bookmark (manager, bookmark);
   window = ephy_window_new ();

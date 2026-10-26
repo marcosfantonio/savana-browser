@@ -26,11 +26,13 @@ The installed application is called **`savanna`**. It has its own application ID
 
 ### CachyOS and Arch Linux
 
-Install the build tools and GTK/WebKit dependencies:
+Install the build tools and the dependencies required by the project (including
+the separate GTK 4 portal backend and code-generation/documentation tools):
 
 ```sh
 sudo pacman -S --needed base-devel git meson ninja pkgconf \
-  gtk4 libadwaita webkitgtk-6.0 dbusmenu-glib wayland libx11
+  gtk4 libadwaita webkitgtk-6.0 dbusmenu-glib wayland libx11 \
+  libportal libportal-gtk4 libpwquality glib2-devel itstool blueprint-compiler
 ```
 
 Clone, build, and install for your user (installation does not require `sudo`):
@@ -42,7 +44,12 @@ meson setup build --prefix="$HOME/.local" -Ddeveloper_mode=true
 meson install -C build --quiet
 ```
 
-If Meson reports a missing dependency, install the corresponding development package with `pacman` and run `meson setup`/`meson install` again. Meson lists the global menu integrations enabled in its summary.
+`meson setup` configures the build and checks dependencies; `meson install`
+compiles and installs it. The installation is per-user and does not require
+`sudo`. In particular, Arch/CachyOS package `libportal-gtk4` separately from
+`libportal`; both are needed. `glib2-devel` provides GLib code-generation tools,
+while `itstool` and `blueprint-compiler` are needed for help and UI generation.
+Meson lists the global-menu integrations enabled in its summary.
 
 Launch the browser from a terminal:
 
@@ -50,11 +57,29 @@ Launch the browser from a terminal:
 ~/.local/bin/savanna
 ```
 
-The installed `.desktop` file also adds Savanna to the Plasma application launcher. If commands installed in `~/.local/bin` are not on your `PATH`, add that directory or use the full path shown above.
+The installed desktop file is
+`~/.local/share/applications/com.savanna.Browser.desktop` and launches
+`savanna` (not `epiphany`). If `savanna` is not found, either run
+`~/.local/bin/savanna` or add `~/.local/bin` to your `PATH`.
 
 ### Other distributions
 
-Install the development dependencies for GTK 4, libadwaita, WebKitGTK 6, Meson/Ninja, and the libraries required by the project; package names vary by distribution. Then use the same clone, setup, and installation commands above. Meson will stop during configuration and identify any missing dependency.
+Install the equivalent development packages for GTK 4, libadwaita, WebKitGTK
+6, libportal's GTK 4 backend, libpwquality, GLib, Meson/Ninja, Blueprint,
+itstool, and the other libraries required by the project; package names vary
+by distribution. Then use the same clone, setup, and installation commands
+above. If Meson reports a missing dependency or program, install its
+distribution-specific development package and rerun setup and installation:
+
+```sh
+meson setup build --prefix="$HOME/.local" -Ddeveloper_mode=true
+meson install -C build --quiet
+```
+
+If configuration was interrupted and the existing `build` directory is left
+in an unusable state, preserve anything you need from it before removing it;
+then rerun the setup command above. A clean build directory is only needed when
+Meson cannot reconfigure the existing one.
 
 ## Rebuild
 
@@ -69,6 +94,12 @@ This recompiles changed files and installs the application again in `~/.local`. 
 ```sh
 meson test -C build 'Savanna interface test' --print-errorlogs
 ```
+
+To verify the installed command, run `savanna --version` (or
+`~/.local/bin/savanna --version` if `~/.local/bin` is not on your `PATH`).
+Warnings about deprecated inherited `Gtk.TreeView` usage or individual
+translation merge conflicts may appear during the build; they do not by
+themselves mean compilation failed.
 
 ## Features
 

@@ -62,49 +62,14 @@ static gboolean kiosk_mode = FALSE;
 static EphyShell *ephy_shell = NULL;
 static int shutdown_signum = 0;
 
-static gboolean
-is_kde_desktop (const char *desktop)
-{
-  g_autofree char *lowercase = NULL;
-
-  if (!desktop)
-    return FALSE;
-
-  lowercase = g_ascii_strdown (desktop, -1);
-  return g_strrstr (lowercase, "kde") || g_strrstr (lowercase, "plasma");
-}
-
-static gboolean
-is_wayland_backend (void)
-{
-  const char *backend = g_getenv ("GDK_BACKEND");
-
-  if (!g_getenv ("WAYLAND_DISPLAY"))
-    return FALSE;
-
-  /* An explicit GDK backend preference takes precedence over display vars. */
-  if (backend) {
-    g_auto (GStrv) backends = g_strsplit (backend, ",", -1);
-
-    return g_ascii_strcasecmp (g_strstrip (backends[0]), "wayland") == 0;
-  }
-
-  return TRUE;
-}
-
 static void
-configure_nvidia_wayland_workaround (void)
+configure_nvidia_workaround (void)
 {
-  gboolean is_kde = is_kde_desktop (g_getenv ("XDG_CURRENT_DESKTOP")) ||
-                    is_kde_desktop (g_getenv ("XDG_SESSION_DESKTOP"));
-
-  if (!is_wayland_backend () || !is_kde || !g_file_test ("/sys/module/nvidia", G_FILE_TEST_EXISTS))
+  if (!g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND))
     return;
 
-  /* WebKitGTK's NVIDIA/Wayland presentation paths are unstable with the
-   * default Skia compositor, GPU frame transport and GL video sink. Keep GTK
-   * and WebKit page acceleration enabled, but select the working renderer and
-   * shared-memory frame transport; video decoding itself remains available. */
+  /* Apply only when the user opts in. Keep GTK/WebKit page acceleration and
+   * non-AV1 video decoders enabled while selecting the tested renderer/sinks. */
   g_setenv ("__NV_DISABLE_EXPLICIT_SYNC", "1", FALSE);
   g_setenv ("WEBKIT_USE_SKIA_FOR_COMPOSITION", "0", FALSE);
   g_setenv ("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1", FALSE);
@@ -115,7 +80,7 @@ configure_nvidia_wayland_workaround (void)
             "avdec_av1:NONE,av1dec:NONE,dav1ddec:NONE,nvav1dec:NONE",
             FALSE);
 
-  g_debug ("Enabled targeted WebKit graphics/video workarounds for KDE Wayland with NVIDIA");
+  g_debug ("Enabled user-requested NVIDIA graphics/video workaround");
 }
 
 static gboolean
@@ -250,8 +215,6 @@ main (int   argc,
 #if DEVELOPER_MODE
   g_setenv ("GSETTINGS_SCHEMA_DIR", BUILD_ROOT "/data", FALSE);
 #endif
-
-  configure_nvidia_wayland_workaround ();
 
   g_setenv ("PULSE_PROP_application.icon_name", APPLICATION_ID, TRUE);
 
@@ -408,6 +371,8 @@ main (int   argc,
   if (!ephy_file_helpers_init (profile_directory, flags, &error)) {
     g_error ("Fatal initialization error: %s", error->message);
   }
+
+  configure_nvidia_workaround ();
 
   if (g_settings_get_boolean (EPHY_SETTINGS_MAIN, EPHY_PREFS_START_IN_INCOGNITO_MODE) && !application_mode && !open_in_new_window) {
     incognito_mode = TRUE;

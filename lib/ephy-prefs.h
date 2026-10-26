@@ -116,6 +116,7 @@ static const char * const ephy_prefs_state_schema[] = {
 #define EPHY_PREFS_WEB_AUTO_OPEN_SCHEMES            "auto-open-schemes"
 #define EPHY_PREFS_WEB_READER_MODE_ZOOM_LEVEL       "reader-mode-zoom-level"
 #define EPHY_PREFS_WEB_ENABLE_COOKIE_BANNER         "enable-cookie-banner"
+#define EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND     "enable-nvidia-workaround"
 
 static const char * const ephy_prefs_web_schema[] = {
   EPHY_PREFS_WEB_FONT_MIN_SIZE,
@@ -148,6 +149,7 @@ static const char * const ephy_prefs_web_schema[] = {
   EPHY_PREFS_WEB_ALWAYS_SHOW_FULL_URL,
   EPHY_PREFS_WEB_AUTOFILL_DATA,
   EPHY_PREFS_WEB_READER_MODE_ZOOM_LEVEL,
+  EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND,
 };
 
 #define EPHY_PREFS_SCHEMA                             "org.gnome.Epiphany"

@@ -198,6 +198,11 @@
 			<summary>Hide cookie banner</summary>
 			<description>Hide cookie banners.</description>
 		</key>
+		<key type="b" name="enable-nvidia-workaround">
+			<default>false</default>
+			<summary>Enable NVIDIA graphics workaround</summary>
+			<description>Use alternate WebKit graphics and video presentation paths to work around flickering or black/green video on NVIDIA systems.</description>
+		</key>
 		<key type="s" name="user-agent">
 			<default>''</default>
 			<summary>User agent</summary>

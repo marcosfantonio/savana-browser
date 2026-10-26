@@ -261,6 +261,37 @@ popover.suggestions listview > row > grid {
 .savanna-dark popover.suggestions listview { color: #eeeeee; }
 .savanna-dark .savanna-sidebar { background: var(--savanna-glass-bg); color: #e8e8e8; }
 
+/* Light palette counterpart to the dark chrome rules above. Keep identical
+ * surfaces, borders and shadow behavior; only swap the colors. */
+.savanna-window:not(.savanna-dark) .savanna-toolbar-view > .top-bar,
+.savanna-window:not(.savanna-dark) .savanna-toolbar-view > .top-bar:backdrop {
+  background: var(--savanna-glass-bg);
+  color: #343b3e;
+}
+.savanna-window:not(.savanna-dark) .savanna-toolbar-view .savanna-header-bar,
+.savanna-window:not(.savanna-dark) .savanna-toolbar-view .savanna-header-bar:backdrop,
+.savanna-window:not(.savanna-dark) .savanna-header-bar button:not(.close):not(.minimize):not(.maximize),
+.savanna-window:not(.savanna-dark) .savanna-header-bar menubutton > button,
+.savanna-window:not(.savanna-dark) .savanna-tab-bar,
+.savanna-window:not(.savanna-dark) .savanna-tab-bar .box,
+.savanna-window:not(.savanna-dark) .savanna-tab-bar tab { color: #343b3e; }
+.savanna-window:not(.savanna-dark) .savanna-header-bar .navigation-box,
+.savanna-window:not(.savanna-dark) .savanna-header-bar .savanna-controls,
+.savanna-window:not(.savanna-dark) .savanna-header-bar .savanna-menu menubutton > button,
+.savanna-window:not(.savanna-dark) .savanna-header-bar .savanna-menu stack > button {
+  background: #f0f0f0;
+  border-color: #d0d0d0;
+  box-shadow: none;
+}
+.savanna-window:not(.savanna-dark) .savanna-header-bar .location-entry { background: #eeeeee; color: #202020; border-color: #cecece; box-shadow: none; }
+.savanna-window:not(.savanna-dark) .savanna-header-bar .location-entry:focus-within { background: #e6e6e6; }
+.savanna-window:not(.savanna-dark) .savanna-tab-bar tab { background: #eeeeee; border-color: #c4c4c4; }
+.savanna-window:not(.savanna-dark) .savanna-tab-bar tab:selected { background: #d0d0d0; border-color: #c4c4c4; box-shadow: none; }
+.savanna-window:not(.savanna-dark) .savanna-header-bar button:not(.close):not(.minimize):not(.maximize):hover { background: #d8d8d8; }
+.savanna-window:not(.savanna-dark) popover.suggestions > contents { background: #eeeeee; color: #202020; border-color: #cccccc; }
+.savanna-window:not(.savanna-dark) popover.suggestions listview { color: #202020; }
+.savanna-window:not(.savanna-dark) .savanna-sidebar { background: var(--savanna-glass-bg); color: #343b3e; }
+
 /* Compact only the surrounding whitespace. Control/icon/font sizes are shared. */
 .savanna-compact .savanna-header-bar {
   min-height: 0;
