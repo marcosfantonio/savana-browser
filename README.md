@@ -26,13 +26,15 @@ The installed application is called **`savana`**. It has its own application ID 
 
 ### CachyOS and Arch Linux
 
-Install the build tools and the dependencies required by the project (including
-the separate GTK 4 portal backend and code-generation/documentation tools):
+Install the build tools and all dependencies required to build and run the
+project, including the GTK 4 portal backend, code-generation/documentation
+tools, and GStreamer plugins for media playback:
 
 ```sh
 sudo pacman -S --needed base-devel git meson ninja pkgconf \
   gtk4 libadwaita webkitgtk-6.0 dbusmenu-glib wayland libx11 \
-  libportal libportal-gtk4 libpwquality glib2-devel itstool blueprint-compiler
+  libportal libportal-gtk4 libpwquality glib2-devel itstool blueprint-compiler \
+  gst-plugins-good gst-plugin-pipewire
 ```
 
 Clone, build, and install for your user (installation does not require `sudo`):
@@ -51,18 +53,13 @@ compiles and installs it. The installation is per-user and does not require
 while `itstool` and `blueprint-compiler` are needed for help and UI generation.
 Meson lists the global-menu integrations enabled in its summary.
 
-For media playback at runtime (including YouTube audio), install the GStreamer
-plugins as well. On Arch/CachyOS, `gst-plugins-good` provides the
+For media playback (including YouTube audio), `gst-plugins-good` provides the
 `autoaudiosink` and `pulsesink` elements required for audio output;
-`gst-plugin-pipewire` is recommended when the system uses PipeWire:
-
-```sh
-sudo pacman -S --needed gst-plugins-good gst-plugin-pipewire
-```
-
-These are runtime packages, not Savana build dependencies. Without
-`gst-plugins-good`, WebKit may fail while initializing media playback and the
-page process can terminate when opening sites such as YouTube.
+`gst-plugin-pipewire` supports systems using PipeWire. These runtime packages
+are included in the initial installation so users do not need to install
+additional dependencies afterward. Without `gst-plugins-good`, WebKit may fail
+while initializing media playback and the page process can terminate when
+opening sites such as YouTube.
 
 Launch the browser from a terminal:
 
