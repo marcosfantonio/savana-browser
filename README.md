@@ -6,9 +6,8 @@ The installed application is called **`savanna`**. It has its own application ID
 
 ## Screenshots
 
-| ![Savanna browser](screenshots/screen2.png)
-
-| ![Savanna screenshot 2](screenshots/screen1.png) | ![Savanna screenshot 3](screenshots/screen3.png) | ![Savanna screenshot 4](screenshots/screen4.png) |
+| ![Savanna browser](screenshots/screen2.png) |
+| ![Savanna screenshot 2](screenshots/screen3.png) | ![Savanna screenshot 3](screenshots/screen4.png) | ![Savanna screenshot 4](screenshots/screen1.png) |
 | ![Savanna screenshot 5](screenshots/screen5.png) | ![Savanna screenshot 6](screenshots/screen6.png) | ![Savanna screenshot 7](screenshots/screen7.png) |
 
 ![Savanna screenshot 8](screenshots/screen8.png)
