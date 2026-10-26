@@ -63,6 +63,62 @@ static EphyShell *ephy_shell = NULL;
 static int shutdown_signum = 0;
 
 static gboolean
+is_kde_desktop (const char *desktop)
+{
+  g_autofree char *lowercase = NULL;
+
+  if (!desktop)
+    return FALSE;
+
+  lowercase = g_ascii_strdown (desktop, -1);
+  return g_strrstr (lowercase, "kde") || g_strrstr (lowercase, "plasma");
+}
+
+static gboolean
+is_wayland_backend (void)
+{
+  const char *backend = g_getenv ("GDK_BACKEND");
+
+  if (!g_getenv ("WAYLAND_DISPLAY"))
+    return FALSE;
+
+  /* An explicit GDK backend preference takes precedence over display vars. */
+  if (backend) {
+    g_auto (GStrv) backends = g_strsplit (backend, ",", -1);
+
+    return g_ascii_strcasecmp (g_strstrip (backends[0]), "wayland") == 0;
+  }
+
+  return TRUE;
+}
+
+static void
+configure_nvidia_wayland_workaround (void)
+{
+  gboolean is_kde = is_kde_desktop (g_getenv ("XDG_CURRENT_DESKTOP")) ||
+                    is_kde_desktop (g_getenv ("XDG_SESSION_DESKTOP"));
+
+  if (!is_wayland_backend () || !is_kde || !g_file_test ("/sys/module/nvidia", G_FILE_TEST_EXISTS))
+    return;
+
+  /* WebKitGTK's NVIDIA/Wayland presentation paths are unstable with the
+   * default Skia compositor, GPU frame transport and GL video sink. Keep GTK
+   * and WebKit page acceleration enabled, but select the working renderer and
+   * shared-memory frame transport; video decoding itself remains available. */
+  g_setenv ("__NV_DISABLE_EXPLICIT_SYNC", "1", FALSE);
+  g_setenv ("WEBKIT_USE_SKIA_FOR_COMPOSITION", "0", FALSE);
+  g_setenv ("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1", FALSE);
+  g_setenv ("WEBKIT_GST_DISABLE_GL_SINK", "1", FALSE);
+  /* AV1 decoder selection was also unstable on this stack. Leave other
+   * hardware/software decoders (H.264, VP9, etc.) at their normal ranks. */
+  g_setenv ("GST_PLUGIN_FEATURE_RANK",
+            "avdec_av1:NONE,av1dec:NONE,dav1ddec:NONE,nvav1dec:NONE",
+            FALSE);
+
+  g_debug ("Enabled targeted WebKit graphics/video workarounds for KDE Wayland with NVIDIA");
+}
+
+static gboolean
 handle_shutdown_signal (gpointer user_data)
 {
   shutdown_signum = GPOINTER_TO_INT (user_data);
@@ -194,6 +250,8 @@ main (int   argc,
 #if DEVELOPER_MODE
   g_setenv ("GSETTINGS_SCHEMA_DIR", BUILD_ROOT "/data", FALSE);
 #endif
+
+  configure_nvidia_wayland_workaround ();
 
   g_setenv ("PULSE_PROP_application.icon_name", APPLICATION_ID, TRUE);
 
@@ -436,6 +494,11 @@ main (int   argc,
   }
 
   maximize_fd_limit ();
+
+  /* Shell construction creates the WebKit context, which can query GTK's GL
+   * capabilities immediately (e.g. with shared-memory frame transport). Do not
+   * depend on GtkApplication startup or WebKit's DMABUF setup to open a display. */
+  gtk_init ();
 
   _ephy_shell_create_instance (mode);
 
