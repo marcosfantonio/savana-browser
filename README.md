@@ -6,12 +6,21 @@ The installed application is called **`savanna`**. It has its own application ID
 
 ## Screenshots
 
-|  |  |
-| --- | --- |
-| ![Savanna browser](screenshots/screen2.png) | ![Savanna screenshot](screenshots/screen3.png) |
-| ![Savanna screenshot](screenshots/screen4.png) | ![Savanna screenshot](screenshots/screen1.png) |
-| ![Savanna screenshot](screenshots/screen5.png) | ![Savanna screenshot](screenshots/screen6.png) |
-| ![Savanna screenshot](screenshots/screen7.png) | ![Savanna screenshot](screenshots/screen8.png) |
+![Savanna browser](screenshots/screen2.png)
+
+![Savanna screenshot](screenshots/screen3.png)
+
+![Savanna screenshot](screenshots/screen4.png)
+
+![Savanna screenshot](screenshots/screen1.png)
+
+![Savanna screenshot](screenshots/screen5.png)
+
+![Savanna screenshot](screenshots/screen6.png)
+
+![Savanna screenshot](screenshots/screen7.png)
+
+![Savanna screenshot](screenshots/screen8.png)
 
 ## Easy Linux installation
 
