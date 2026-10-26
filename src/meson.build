@@ -33,6 +33,8 @@ libephymain_sources = [
   'ephy-encoding-row.c',
   'ephy-firefox-sync-dialog.c',
   'ephy-fullscreen-box.c',
+  'ephy-global-menu.c',
+  'ephy-dbus-menu.c',
   'ephy-header-bar.c',
   'ephy-history-dialog.c',
   'ephy-history-dialog-row.c',
@@ -128,6 +130,7 @@ blueprints = custom_target('blueprints',
 )
 
 libephymain_deps = [
+  dbusmenu_dep,
   config_h,
   ephyembed_dep,
   ephymisc_dep,
@@ -143,6 +146,23 @@ libephymain_deps = [
   portal_dep,
   webkitgtk_dep,
 ]
+
+if conf.get('HAVE_GLOBAL_MENU_WAYLAND') == 1
+  scanner = find_program('wayland-scanner')
+  appmenu_header = custom_target('appmenu-client-protocol',
+    input: 'protocols/appmenu.xml',
+    output: 'appmenu-client-protocol.h',
+    command: [scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
+  appmenu_code = custom_target('appmenu-protocol',
+    input: 'protocols/appmenu.xml',
+    output: 'appmenu-protocol.c',
+    command: [scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
+  libephymain_sources += [appmenu_header, appmenu_code]
+  libephymain_deps += [global_menu_wayland_dep, wayland_client_dep]
+endif
+if conf.get('HAVE_GLOBAL_MENU_X11') == 1
+  libephymain_deps += [global_menu_x11_dep, global_menu_xlib_dep]
+endif
 
 libephymain_includes = include_directories(
   '.',

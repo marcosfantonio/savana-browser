@@ -4546,11 +4546,40 @@ create_tab_cb (EphyWindow *window)
 }
 
 static void
+global_action_activated_cb (GSimpleAction *proxy,
+                            GVariant *parameter,
+                            GAction *target)
+{
+  g_action_activate (target, parameter);
+}
+
+static void
 insert_action_group (const char   *prefix,
                      GActionGroup *group,
                      GtkWidget    *widget)
 {
   gtk_widget_insert_action_group (widget, prefix, group);
+
+  /* GtkWidget's custom action groups are not exported by GtkApplicationWindow.
+   * Publish the same actions (and toolbar/tab aliases) for the global menu. */
+  if (g_str_equal (prefix, "win") || g_str_equal (prefix, "tab") || g_str_equal (prefix, "toolbar")) {
+    g_auto (GStrv) names = g_action_group_list_actions (group);
+
+    for (guint i = 0; names[i]; i++) {
+      GAction *action = g_action_map_lookup_action (G_ACTION_MAP (group), names[i]);
+
+      if (g_str_equal (prefix, "win")) {
+        g_action_map_add_action (G_ACTION_MAP (widget), action);
+      } else if (!g_action_get_state_type (action)) {
+        g_autofree char *name = g_strdup_printf ("global-%s-%s", prefix, names[i]);
+        g_autoptr (GSimpleAction) proxy = g_simple_action_new (name, g_action_get_parameter_type (action));
+
+        g_object_bind_property (action, "enabled", proxy, "enabled", G_BINDING_SYNC_CREATE);
+        g_signal_connect_object (proxy, "activate", G_CALLBACK (global_action_activated_cb), action, 0);
+        g_action_map_add_action (G_ACTION_MAP (widget), G_ACTION (proxy));
+      }
+    }
+  }
 }
 
 static gboolean
@@ -4694,6 +4723,7 @@ ephy_window_constructed (GObject *object)
   }
 
   window->tab_view = setup_tab_view (window);
+  gtk_application_window_set_show_menubar (GTK_APPLICATION_WINDOW (window), FALSE);
   {
     GtkWidget *sidebar_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
     GtkWidget *sidebar = ephy_savanna_sidebar_new (window);

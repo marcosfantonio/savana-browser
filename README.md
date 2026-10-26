@@ -79,6 +79,12 @@ $ sudo apt install $(apt-file search --package-only hogweed)
 In other distributions, you must research each dependency to determine which
 package provides the required pkg-config file.
 
+### Linux Global Menus
+
+Savanna supports Plasma's DBusMenu integration on Wayland and X11, in addition
+to native GTK menus. See [global-menu support and packaging requirements](docs/global-menu.md)
+for dependencies, supported panel protocols and diagnostics.
+
 ### Rebuilding Dependencies
 
 Newcomers should try to avoid bugs that require making changes in WebKit or

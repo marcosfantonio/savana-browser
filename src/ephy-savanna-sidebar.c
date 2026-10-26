@@ -378,7 +378,10 @@ static void
 sync_clicked (GtkButton *button,
               Sidebar *sidebar)
 {
-  gtk_window_present (GTK_WINDOW (ephy_shell_get_firefox_sync_dialog (ephy_shell_get_default ())));
+  GtkWindow *dialog = GTK_WINDOW (ephy_shell_get_firefox_sync_dialog (ephy_shell_get_default ()));
+
+  gtk_window_set_transient_for (dialog, GTK_WINDOW (sidebar->window));
+  gtk_window_present (dialog);
 }
 
 static void
@@ -535,6 +538,7 @@ ephy_savanna_sidebar_new (EphyWindow *window)
   GtkWidget *devices = sidebar_button ("phone-symbolic", _("iPhone & Android"));
   GtkWidget *sync = sidebar_button ("view-refresh-symbolic", _("Connect Devices…"));
   GtkWidget *bookmarks = sidebar_button ("savanna-bookmarks-symbolic", _("Bookmarks"));
+  GtkWidget *history = sidebar_button ("document-open-recent-symbolic", _("History"));
   AdwTabView *view = ephy_tab_view_get_tab_view (ephy_window_get_tab_view (window));
   g_autofree char *path = groups_path ();
   g_autoptr (GFile) file = g_file_new_for_path (path);
@@ -561,6 +565,7 @@ ephy_savanna_sidebar_new (EphyWindow *window)
   heading (box, _("Devices"));
   gtk_box_append (GTK_BOX (box), devices);
   gtk_box_append (GTK_BOX (box), sync);
+  gtk_widget_set_tooltip_text (sync, _("Connect Devices…"));
   g_signal_connect (devices, "clicked", G_CALLBACK (connected_clicked), sidebar);
   g_signal_connect (sync, "clicked", G_CALLBACK (sync_clicked), sidebar);
   heading (box, _("Saved"));
@@ -572,6 +577,9 @@ ephy_savanna_sidebar_new (EphyWindow *window)
     if (i == 0) {
       gtk_actionable_set_action_name (GTK_ACTIONABLE (bookmarks), "win.bookmarks");
       gtk_box_append (GTK_BOX (box), bookmarks);
+      gtk_actionable_set_action_name (GTK_ACTIONABLE (history), "app.history");
+      gtk_widget_set_tooltip_text (history, _("History"));
+      gtk_box_append (GTK_BOX (box), history);
     }
   }
   sidebar->monitor = g_file_monitor_file (file, G_FILE_MONITOR_NONE, NULL, NULL);

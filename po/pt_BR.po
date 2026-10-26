@@ -5208,8 +5208,9 @@ msgstr "_Habilitar"
 #~ msgid "Clear"
 #~ msgstr "Limpar"
 
-#~ msgid "_Redo"
-#~ msgstr "_Refazer"
+#: src/ephy-global-menu.c
+msgid "_Redo"
+msgstr "_Refazer"
 
 #~ msgid "I_mport and Export"
 #~ msgstr "I_mportar e exportar"
@@ -5596,8 +5597,9 @@ msgstr "_Habilitar"
 #~ msgid "No bookmarks yet?"
 #~ msgstr "Nenhum favorito ainda?"
 
-#~ msgid "_History"
-#~ msgstr "_Histórico"
+#: src/ephy-global-menu.c
+msgid "_History"
+msgstr "_Histórico"
 
 #~ msgid "Open Appli_cation Manager"
 #~ msgstr "Abrir geren_ciador de aplicativo"
@@ -5786,3 +5788,87 @@ msgstr "Salve uma página para ler depois. As páginas salvas permanecem aqui ap
 #: src/ephy-savanna-sidebar.c
 msgid "Your most recently saved bookmarks will appear here."
 msgstr "Seus favoritos salvos mais recentemente aparecerão aqui."
+
+#: src/ephy-global-menu.c
+msgid "_About Savanna"
+msgstr "_Sobre o Savanna"
+
+#: src/ephy-global-menu.c
+msgid "_Preferences"
+msgstr "_Preferências"
+
+#: src/ephy-global-menu.c
+msgid "_File"
+msgstr "_Arquivo"
+
+#: src/ephy-global-menu.c
+msgid "New _Tab"
+msgstr "Nova a_ba"
+
+#: src/ephy-global-menu.c
+msgid "_Open…"
+msgstr "_Abrir…"
+
+#: src/ephy-global-menu.c
+msgid "Save Page _As…"
+msgstr "Salvar página _como…"
+
+#: src/ephy-global-menu.c
+msgid "_Close Tab"
+msgstr "_Fechar aba"
+
+#: src/ephy-global-menu.c
+msgid "_Edit"
+msgstr "_Editar"
+
+#: src/ephy-global-menu.c
+msgid "_View"
+msgstr "E_xibir"
+
+#: src/ephy-global-menu.c
+msgid "_Stop"
+msgstr "_Parar"
+
+#: src/ephy-global-menu.c
+msgid "Zoom _In"
+msgstr "_Ampliar"
+
+#: src/ephy-global-menu.c
+msgid "Zoom _Out"
+msgstr "_Reduzir"
+
+#: src/ephy-global-menu.c
+msgid "_Normal Size"
+msgstr "Tamanho _normal"
+
+#: src/ephy-global-menu.c
+msgid "Clear Personal _Data…"
+msgstr "Limpar _dados pessoais…"
+
+#: src/ephy-global-menu.c
+msgid "_Bookmarks"
+msgstr "_Favoritos"
+
+#: src/ephy-global-menu.c
+msgid "Add _Bookmark"
+msgstr "Adicionar _favorito"
+
+#: src/ephy-global-menu.c
+msgid "_Import Bookmarks…"
+msgstr "_Importar favoritos…"
+
+#: src/ephy-global-menu.c
+msgid "_Export Bookmarks…"
+msgstr "_Exportar favoritos…"
+
+#: src/ephy-global-menu.c
+msgid "_Window"
+msgstr "_Janela"
+
+#: src/ephy-global-menu.c
+msgid "Tab _Overview"
+msgstr "_Visão geral das abas"
+
+#: src/ephy-global-menu.c
+msgid "_Duplicate Tab"
+msgstr "_Duplicar aba"

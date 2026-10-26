@@ -23,6 +23,7 @@
 #include "config.h"
 
 #include "ephy-shell.h"
+#include "ephy-global-menu.h"
 
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
@@ -664,6 +665,8 @@ apply_window_appearance (GtkApplication *application,
                           EphyShell *shell)
 {
   gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-surface");
+  if (EPHY_IS_WINDOW (window))
+    ephy_global_menu_attach (GTK_APPLICATION_WINDOW (window));
   if (adw_style_manager_get_dark (adw_style_manager_get_default ()))
     gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-dark");
   else
@@ -823,6 +826,7 @@ ephy_shell_startup (GApplication *application)
     g_action_map_add_action_entries (G_ACTION_MAP (application),
                                      app_entries, G_N_ELEMENTS (app_entries),
                                      application);
+    ephy_global_menu_setup (GTK_APPLICATION (application));
 
     if (mode != EPHY_EMBED_SHELL_MODE_INCOGNITO &&
         mode != EPHY_EMBED_SHELL_MODE_AUTOMATION) {
@@ -1741,10 +1745,11 @@ finish_closing_after_modified_forms_check (EphyShell *shell)
 
   shell->checking_modified_forms = FALSE;
   while (windows) {
-    EphyWindow *window = EPHY_WINDOW (windows->data);
+    GtkWindow *window = windows->data;
 
     windows = windows->next;
-    ephy_window_handle_quit_with_modified_forms (window);
+    if (EPHY_IS_WINDOW (window))
+      ephy_window_handle_quit_with_modified_forms (EPHY_WINDOW (window));
   }
   g_application_quit (G_APPLICATION (shell));
 }
@@ -1773,11 +1778,15 @@ guint
 ephy_shell_get_n_windows (EphyShell *shell)
 {
   GList *list;
+  guint count = 0;
 
   g_assert (EPHY_IS_SHELL (shell));
 
   list = gtk_application_get_windows (GTK_APPLICATION (shell));
-  return g_list_length (list);
+  for (GList *l = list; l; l = l->next)
+    if (EPHY_IS_WINDOW (l->data))
+      count++;
+  return count;
 }
 
 gboolean
@@ -1793,9 +1802,13 @@ ephy_shell_close_all_windows (EphyShell *shell)
   shell->checking_modified_forms = TRUE;
   shell->num_windows_with_modified_forms = ephy_shell_get_n_windows (shell);
   while (windows) {
-    EphyWindow *window = EPHY_WINDOW (windows->data);
+    gpointer candidate = windows->data;
+    EphyWindow *window;
 
     windows = windows->next;
+    if (!EPHY_IS_WINDOW (candidate))
+      continue;
+    window = EPHY_WINDOW (candidate);
 
     /* Check if the window already has modified forms. This prevents
      * showing the modified forms dialog multiple times, which could happen
@@ -1823,10 +1836,11 @@ ephy_shell_close_all_windows (EphyShell *shell)
 
     windows = gtk_application_get_windows (GTK_APPLICATION (shell));
     while (windows) {
-      EphyWindow *window = EPHY_WINDOW (windows->data);
+      GtkWindow *window = windows->data;
 
       windows = windows->next;
-      ephy_window_close (window);
+      if (EPHY_IS_WINDOW (window))
+        ephy_window_close (EPHY_WINDOW (window));
     }
   }
 

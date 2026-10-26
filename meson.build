@@ -94,6 +94,14 @@ granite_dep = dependency('granite-7', version: '>= 7.2.0', required: get_option(
 gsettings_desktop_schemas = dependency('gsettings-desktop-schemas')
 gstreamer_dep = dependency('gstreamer-1.0')
 gtk_dep = dependency('gtk4', version: gtk_requirement)
+dbusmenu_dep = dependency('dbusmenu-glib-0.4', required: get_option('global_menu'))
+global_menu_wayland_dep = dependency('gtk4-wayland', required: false)
+global_menu_x11_dep = dependency('gtk4-x11', required: false)
+wayland_client_dep = dependency('wayland-client', required: dbusmenu_dep.found() and global_menu_wayland_dep.found())
+global_menu_xlib_dep = dependency('x11', required: dbusmenu_dep.found() and global_menu_x11_dep.found())
+conf.set10('HAVE_DBUSMENU', dbusmenu_dep.found())
+conf.set10('HAVE_GLOBAL_MENU_WAYLAND', dbusmenu_dep.found() and global_menu_wayland_dep.found() and wayland_client_dep.found())
+conf.set10('HAVE_GLOBAL_MENU_X11', dbusmenu_dep.found() and global_menu_x11_dep.found() and global_menu_xlib_dep.found())
 gtk_unix_print_dep = dependency('gtk4-unix-print', version: gtk_requirement)
 hogweed_dep = dependency('hogweed', version: nettle_requirement)
 iso_codes_dep = dependency('iso-codes', version: '>= 0.35')
@@ -167,6 +175,12 @@ subdir('lib')
 subdir('embed')
 subdir('src')
 subdir('tests')
+
+summary({
+  'DBusMenu': dbusmenu_dep.found(),
+  'Plasma Wayland appmenu': conf.get('HAVE_GLOBAL_MENU_WAYLAND') == 1,
+  'X11 global-menu registration': conf.get('HAVE_GLOBAL_MENU_X11') == 1,
+}, section: 'Global menu')
 
 gnome.post_install(
   gtk_update_icon_cache: true,

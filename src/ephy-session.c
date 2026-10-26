@@ -668,6 +668,10 @@ save_data_new (EphySession *session)
   for (w = windows; w; w = w->next) {
     SessionWindow *session_window;
 
+    /* Sync and other auxiliary GtkWindows may belong to the application,
+     * but only browser windows contain tabs that can be serialized. */
+    if (!EPHY_IS_WINDOW (w->data))
+      continue;
     session_window = session_window_new (EPHY_WINDOW (w->data), session);
     if (session_window)
       data->windows = g_list_prepend (data->windows, session_window);

@@ -33,3 +33,9 @@ option('man-pages',
   value: 'auto',
   description: 'Enable man page generation (requires rst2man)'
 )
+
+option('global_menu',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Export DBusMenu for Plasma and other Linux global-menu panels'
+)

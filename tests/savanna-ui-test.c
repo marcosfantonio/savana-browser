@@ -12,13 +12,117 @@
 #include "ephy-header-bar.h"
 #include "ephy-history-service.h"
 #include "ephy-fullscreen-box.h"
+#include "ephy-global-menu.h"
 #include "ephy-savanna-sidebar.h"
 #include "ephy-location-entry.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
+#include "ephy-session.h"
 #include "ephy-tab-view.h"
 #include "ephy-window.h"
 #include "prefs-appearance-page.h"
+
+#if HAVE_DBUSMENU
+typedef struct {
+  GMainLoop *loop;
+  GVariant *reply;
+  GError *error;
+} MenuCall;
+
+static void
+menu_call_finished (GObject *source,
+                    GAsyncResult *result,
+                    gpointer data)
+{
+  MenuCall *call = data;
+
+  call->reply = g_dbus_connection_call_finish (G_DBUS_CONNECTION (source), result, &call->error);
+  g_main_loop_quit (call->loop);
+}
+
+static GVariant *
+call_dbusmenu (GtkApplicationWindow *window,
+               const char *method,
+               GVariant *parameters)
+{
+  GtkApplication *application = gtk_window_get_application (GTK_WINDOW (window));
+  GDBusConnection *connection = g_application_get_dbus_connection (G_APPLICATION (application));
+  g_autoptr (GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  MenuCall call = { .loop = loop };
+  const char *path = ephy_global_menu_get_dbusmenu_path (window);
+
+  g_assert_nonnull (path);
+  g_dbus_connection_call (connection, g_dbus_connection_get_unique_name (connection), path,
+                          "com.canonical.dbusmenu", method, parameters, NULL,
+                          G_DBUS_CALL_FLAGS_NONE, 5000, NULL, menu_call_finished, &call);
+  g_main_loop_run (loop);
+  g_assert_no_error (call.error);
+  g_assert_nonnull (call.reply);
+  return call.reply;
+}
+
+static GVariant *
+find_menu_layout (GVariant *layout,
+                  const char *label)
+{
+  g_autoptr (GVariant) properties = g_variant_get_child_value (layout, 1);
+  g_autoptr (GVariant) children = g_variant_get_child_value (layout, 2);
+  const char *item_label = NULL;
+
+  if (g_variant_lookup (properties, "label", "&s", &item_label) && g_str_equal (item_label, label))
+    return g_variant_ref (layout);
+  for (gsize i = 0; i < g_variant_n_children (children); i++) {
+    g_autoptr (GVariant) child = g_variant_get_child_value (children, i);
+    g_autoptr (GVariant) unboxed = g_variant_get_variant (child);
+    GVariant *found = find_menu_layout (unboxed, label);
+
+    if (found)
+      return found;
+  }
+  return NULL;
+}
+
+static void
+assert_dbusmenu (GtkApplicationWindow *window,
+                 AdwOverlaySplitView *split)
+{
+  g_autoptr (GVariant) reply = call_dbusmenu (window, "GetLayout", g_variant_new ("(ii@as)", 0, -1, g_variant_new_strv (NULL, 0)));
+  g_autoptr (GVariant) root = g_variant_get_child_value (reply, 1);
+  g_autoptr (GVariant) children = g_variant_get_child_value (root, 2);
+  g_autoptr (GVariant) item = find_menu_layout (root, "Show Sidebar");
+  g_autoptr (GVariant) id = NULL;
+  g_autoptr (GVariant) event = NULL;
+  GSimpleAction *action = G_SIMPLE_ACTION (g_action_map_lookup_action (G_ACTION_MAP (window), "toggle-sidebar"));
+  gboolean initial = adw_overlay_split_view_get_show_sidebar (split);
+  gint32 item_id;
+
+  g_assert_cmpuint (g_variant_n_children (children), ==, 8);
+  g_assert_nonnull (item);
+  id = g_variant_get_child_value (item, 0);
+  item_id = g_variant_get_int32 (id);
+  event = call_dbusmenu (window, "Event", g_variant_new ("(isvu)", item_id, "clicked", g_variant_new_int32 (0), 0));
+  g_assert_cmpint (adw_overlay_split_view_get_show_sidebar (split), ==, !initial);
+  g_clear_pointer (&event, g_variant_unref);
+  event = call_dbusmenu (window, "Event", g_variant_new ("(isvu)", item_id, "clicked", g_variant_new_int32 (0), 0));
+  g_assert_cmpint (adw_overlay_split_view_get_show_sidebar (split), ==, initial);
+
+  g_simple_action_set_enabled (action, FALSE);
+  g_clear_pointer (&reply, g_variant_unref);
+  reply = call_dbusmenu (window, "GetLayout", g_variant_new ("(ii@as)", item_id, 0, g_variant_new_strv (NULL, 0)));
+  {
+    g_autoptr (GVariant) disabled = g_variant_get_child_value (reply, 1);
+    g_autoptr (GVariant) properties = g_variant_get_child_value (disabled, 1);
+    gboolean enabled = TRUE;
+
+    g_assert_true (g_variant_lookup (properties, "enabled", "b", &enabled));
+    g_assert_false (enabled);
+  }
+  g_clear_pointer (&event, g_variant_unref);
+  event = call_dbusmenu (window, "Event", g_variant_new ("(isvu)", item_id, "clicked", g_variant_new_int32 (0), 0));
+  g_assert_cmpint (adw_overlay_split_view_get_show_sidebar (split), ==, initial);
+  g_simple_action_set_enabled (action, TRUE);
+}
+#endif
 
 static GskRenderNode *
 background_node (GtkWidget *widget)
@@ -120,6 +224,8 @@ assert_chrome_transparency (GtkWidget *header,
     GtkWidget *preferences = gtk_widget_get_next_sibling (downloads);
     GtkWidget *entry = GTK_WIDGET (ephy_header_bar_get_title_widget (EPHY_HEADER_BAR (header)));
     GtkWidget *suggestions = GTK_WIDGET (gtk_widget_get_template_child (entry, EPHY_TYPE_LOCATION_ENTRY, "suggestions_popover"));
+    GtkWidget *downloads_popover = GTK_WIDGET (gtk_menu_button_get_popover (GTK_MENU_BUTTON (downloads)));
+    GtkWidget *downloads_scroll = gtk_widget_get_first_child (gtk_popover_get_child (GTK_POPOVER (downloads_popover)));
     g_autoptr (GskRenderNode) sidebar_background = background_node (sidebar);
 
     g_assert_nonnull (sidebar_background);
@@ -132,7 +238,17 @@ assert_chrome_transparency (GtkWidget *header,
     g_assert_null (gtk_widget_get_next_sibling (preferences));
     assert_glass_popover (GTK_WIDGET (gtk_menu_button_get_popover (GTK_MENU_BUTTON (downloads))));
     assert_glass_popover (suggestions);
+    g_assert_cmpint (gtk_scrolled_window_get_min_content_height (GTK_SCROLLED_WINDOW (downloads_scroll)), ==, 132);
+    g_assert_cmpint (gtk_scrolled_window_get_max_content_height (GTK_SCROLLED_WINDOW (downloads_scroll)), ==, 132);
+    g_assert_false (gtk_scrolled_window_get_propagate_natural_height (GTK_SCROLLED_WINDOW (downloads_scroll)));
+    g_assert_false (gtk_scrolled_window_get_overlay_scrolling (GTK_SCROLLED_WINDOW (downloads_scroll)));
   }
+}
+
+static void
+session_save_wait_cb (gpointer data)
+{
+  g_main_loop_quit (data);
 }
 
 static void
@@ -265,6 +381,11 @@ test_interface (void)
 
   ephy_bookmarks_manager_add_bookmark (manager, bookmark);
   window = ephy_window_new ();
+  g_assert_nonnull (gtk_application_get_menubar (GTK_APPLICATION (shell)));
+  g_assert_cmpint (g_menu_model_get_n_items (gtk_application_get_menubar (GTK_APPLICATION (shell))), ==, 8);
+  g_assert_true (g_action_group_has_action (G_ACTION_GROUP (window), "new-tab"));
+  g_assert_true (g_action_group_has_action (G_ACTION_GROUP (window), "global-tab-close"));
+  g_assert_true (g_action_group_has_action (G_ACTION_GROUP (window), "global-toolbar-reload"));
   dialog = gtk_window_new ();
   gtk_window_set_application (GTK_WINDOW (dialog), GTK_APPLICATION (shell));
   g_assert_true (gtk_widget_has_css_class (dialog, "savanna-surface"));
@@ -292,6 +413,16 @@ test_interface (void)
   g_assert_true (gtk_widget_is_ancestor (GTK_WIDGET (embed), adw_overlay_split_view_get_content (split)));
   g_assert_nonnull (adw_overlay_split_view_get_sidebar (split));
   g_assert_false (adw_overlay_split_view_get_show_sidebar (split));
+  {
+    GtkWidget *history = find_sidebar_button (adw_overlay_split_view_get_sidebar (split), "History");
+    g_assert_nonnull (history);
+    g_assert_cmpstr (gtk_actionable_get_action_name (GTK_ACTIONABLE (history)), ==, "app.history");
+    g_assert_cmpstr (gtk_actionable_get_action_name (GTK_ACTIONABLE (gtk_widget_get_prev_sibling (history))), ==, "win.bookmarks");
+    g_action_group_activate_action (G_ACTION_GROUP (window), "toggle-sidebar", NULL);
+    g_assert_true (adw_overlay_split_view_get_show_sidebar (split));
+    g_action_group_activate_action (G_ACTION_GROUP (window), "toggle-sidebar", NULL);
+    g_assert_false (adw_overlay_split_view_get_show_sidebar (split));
+  }
   gtk_widget_activate_action (GTK_WIDGET (window), "win.toggle-sidebar", NULL);
   g_assert_true (adw_overlay_split_view_get_show_sidebar (split));
   gtk_widget_activate_action (GTK_WIDGET (window), "win.toggle-sidebar", NULL);
@@ -307,6 +438,9 @@ test_interface (void)
   g_main_loop_run (loop);
   g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savanna-compact"));
   assert_chrome_transparency (header, FALSE);
+#if HAVE_DBUSMENU
+  assert_dbusmenu (GTK_APPLICATION_WINDOW (window), split);
+#endif
   g_settings_set_uint (EPHY_SETTINGS_MAIN, "browser-color-scheme", 1);
   assert_chrome_transparency (header, FALSE);
   g_settings_set_uint (EPHY_SETTINGS_MAIN, "browser-color-scheme", 2);
@@ -376,6 +510,9 @@ test_interface (void)
   g_assert_true (gtk_revealer_get_reveal_child (GTK_REVEALER (revealer)));
   g_assert_true (gtk_widget_get_visible (revealer));
   ephy_download_set_destination (download, download_path);
+  /* A completed download intentionally closes the last hidden window.
+   * Keep this test window visible while exercising completion. */
+  gtk_window_present (GTK_WINDOW (window));
   g_signal_emit_by_name (ephy_download_get_webkit_download (download), "finished");
   g_assert_true (ephy_download_succeeded (download));
   g_assert_true (gtk_widget_get_visible (revealer));
@@ -406,6 +543,26 @@ test_interface (void)
   g_signal_connect (ephy_embed_get_web_view (embed), "load-changed", G_CALLBACK (populated_page_loaded_cb), loop);
   ephy_web_view_load_url (ephy_embed_get_web_view (embed), "ephy-about:overview");
   g_main_loop_run (loop);
+  {
+    GtkWidget *sync = find_sidebar_button (adw_overlay_split_view_get_sidebar (split), "Connect Devices…");
+    GtkWidget *dialog;
+    g_autofree char *session_path = g_build_filename (ephy_profile_dir (), "session_state.xml", NULL);
+
+    g_assert_nonnull (sync);
+    g_application_hold (G_APPLICATION (shell));
+    gtk_window_present (GTK_WINDOW (window));
+    g_signal_emit_by_name (sync, "clicked");
+    dialog = ephy_shell_get_firefox_sync_dialog (shell);
+    g_assert_true (GTK_IS_WINDOW (dialog));
+    g_assert_true (gtk_window_get_transient_for (GTK_WINDOW (dialog)) == GTK_WINDOW (window));
+    gtk_window_set_application (GTK_WINDOW (dialog), GTK_APPLICATION (shell));
+    ephy_session_save (ephy_shell_get_session (shell));
+    g_timeout_add_seconds_once (2, session_save_wait_cb, loop);
+    g_main_loop_run (loop);
+    g_assert_true (g_file_test (session_path, G_FILE_TEST_EXISTS));
+    gtk_window_destroy (GTK_WINDOW (dialog));
+    g_application_release (G_APPLICATION (shell));
+  }
   g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savanna-compact"));
   {
     g_autofree char *id = ephy_savanna_tab_group_save (window, "Research");
@@ -415,6 +572,9 @@ test_interface (void)
     gsize length;
     guint windows = ephy_shell_get_n_windows (shell);
     EphyWindow *reopened = NULL;
+#if HAVE_DBUSMENU
+    g_autofree char *menu_path = g_strdup (ephy_global_menu_get_dbusmenu_path (GTK_APPLICATION_WINDOW (window)));
+#endif
 
     g_assert_nonnull (id);
     g_assert_true (g_key_file_load_from_file (groups, path, G_KEY_FILE_NONE, NULL));
@@ -432,6 +592,10 @@ test_interface (void)
       if (EPHY_IS_WINDOW (l->data) && g_strcmp0 (g_object_get_data (l->data, "savanna-tab-group"), id) == 0)
         reopened = l->data;
     g_assert_nonnull (reopened);
+#if HAVE_DBUSMENU
+    g_assert_cmpstr (ephy_global_menu_get_dbusmenu_path (GTK_APPLICATION_WINDOW (reopened)), !=, menu_path);
+    assert_dbusmenu (GTK_APPLICATION_WINDOW (reopened), ADW_OVERLAY_SPLIT_VIEW (gtk_widget_get_template_child (GTK_WIDGET (reopened), EPHY_TYPE_WINDOW, "navigation_split_view")));
+#endif
     g_assert_cmpint (adw_tab_view_get_n_pages (ephy_tab_view_get_tab_view (ephy_window_get_tab_view (reopened))), ==, 2);
     ephy_savanna_tab_group_remove (id);
     g_assert_true (g_key_file_load_from_file (groups, path, G_KEY_FILE_NONE, NULL));

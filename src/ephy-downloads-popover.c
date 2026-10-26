@@ -37,7 +37,20 @@ struct _EphyDownloadsPopover {
 
 G_DEFINE_FINAL_TYPE (EphyDownloadsPopover, ephy_downloads_popover, GTK_TYPE_POPOVER)
 
-#define DOWNLOADS_BOX_MIN_SIZE 330
+#define DOWNLOADS_BOX_HEIGHT 132
+#define DOWNLOADS_BOX_WIDTH 440
+
+static void
+downloads_popover_map (GtkWidget *widget)
+{
+  GtkWidget *scrolled = gtk_widget_get_first_child (gtk_popover_get_child (GTK_POPOVER (widget)));
+  GtkRoot *root = gtk_widget_get_root (widget);
+  int width = root ? gtk_widget_get_width (GTK_WIDGET (root)) : 0;
+
+  gtk_scrolled_window_set_min_content_width (GTK_SCROLLED_WINDOW (scrolled),
+                                              width > 0 ? MIN (DOWNLOADS_BOX_WIDTH, MAX (200, width - 48)) : DOWNLOADS_BOX_WIDTH);
+  GTK_WIDGET_CLASS (ephy_downloads_popover_parent_class)->map (widget);
+}
 
 static void
 download_box_row_activated_cb (EphyDownloadsPopover *popover,
@@ -153,6 +166,7 @@ clear_button_clicked_cb (EphyDownloadsPopover *popover)
 static void
 ephy_downloads_popover_class_init (EphyDownloadsPopoverClass *klass)
 {
+  GTK_WIDGET_CLASS (klass)->map = downloads_popover_map;
 }
 
 static void
@@ -171,7 +185,11 @@ ephy_downloads_popover_init (EphyDownloadsPopover *popover)
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
   gtk_scrolled_window_set_min_content_height (GTK_SCROLLED_WINDOW (scrolled_window),
-                                              DOWNLOADS_BOX_MIN_SIZE);
+                                              DOWNLOADS_BOX_HEIGHT);
+  gtk_scrolled_window_set_max_content_height (GTK_SCROLLED_WINDOW (scrolled_window), DOWNLOADS_BOX_HEIGHT);
+  gtk_scrolled_window_set_min_content_width (GTK_SCROLLED_WINDOW (scrolled_window), DOWNLOADS_BOX_WIDTH);
+  gtk_scrolled_window_set_propagate_natural_height (GTK_SCROLLED_WINDOW (scrolled_window), FALSE);
+  gtk_scrolled_window_set_overlay_scrolling (GTK_SCROLLED_WINDOW (scrolled_window), FALSE);
 
   popover->downloads_box = gtk_list_box_new ();
   g_signal_connect_swapped (popover->downloads_box, "row-activated",
