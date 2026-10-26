@@ -1,0 +1,137 @@
+SAVANNA — DIAGNÓSTICO: YOUTUBE NÃO ABRE
+Data: 26/10/2026
+Repositório: /home/samuel/savanna-browser
+Sistema: CachyOS (Arch-based), sessão Wayland/KDE
+Versão instalada: Web 876dc32a0
+
+
+==================================================
+RESUMO
+==================================================
+
+O YouTube não abre porque falta o plugin de áudio do GStreamer
+"autoaudiosink". Ao carregar a página, o WebKit tenta criar esse sink,
+não encontra, recebe um ponteiro NULL e aborta o WebKitWebProcess.
+A aba fica em branco/morre.
+
+Não é bug do Savanna, do build, da rede ou da placa NVIDIA.
+O YouTube está acessível (teste com curl retornou HTTP 200).
+
+
+==================================================
+1. BUILD REALIZADO
+==================================================
+
+Comando executado:
+
+    meson install -C build --quiet
+
+Resultado: sucesso, sem erros. 14 alvos relinkados, incluindo
+src/savanna. Versão instalada confirmada: Web 876dc32a0.
+
+
+==================================================
+2. TESTE CONTROLADO
+==================================================
+
+Comando:
+
+    timeout 45 savanna --new-window 'https://www.youtube.com/' \
+        > /tmp/opencode/savanna-yt.log 2>&1
+
+Trecho relevante do log:
+
+    GStreamer element autoaudiosink not found. Please install it
+    (WebKitWebProcess:2): GLib-GObject-CRITICAL **:
+        invalid (NULL) pointer instance
+    (epiphany:10821): epiphany-WARNING:
+        O processo web falhou e teve que ser encerrado
+
+O processo web falhou repetidamente (3 vezes durante o teste).
+
+
+==================================================
+3. EVIDÊNCIA NO COREDUMP
+==================================================
+
+    coredumpctl info 10182 --no-pager
+
+    Process 10182 (WebKitWebProces) of user 1000 dumped core.
+    Signal: 6 (ABRT)
+
+    Stack trace:
+    #6  g_type_check_instance (libgobject-2.0.so.0)
+    #7  g_signal_connect_data (libgobject-2.0.so.0)
+    #8..  WebKit media player (libwebkitgtk-6.0.so.4)
+    #26 _ZN6WebKit14WebProcessMainEiPPc (libwebkitgtk-6.0.so.4)
+
+Confirma: abort originado no código de mídia do WebKit ao conectar
+um sinal a uma instância NULL (o sink de áudio que não pôde ser criado).
+
+
+==================================================
+4. CAUSA RAIZ
+==================================================
+
+O pacote gst-plugins-good NÃO está instalado nesta máquina.
+Ele é uma dependência OPCIONAL do WebKit e fornece os elementos
+autoaudiosink e pulsesink.
+
+Verificação:
+
+    $ gst-inspect-1.0 autoaudiosink
+    Nenhum elemento ou plug-in "autoaudiosink"
+
+    $ gst-inspect-1.0 pulsesink
+    Nenhum elemento ou plug-in "pulsesink"
+
+Pacotes GStreamer instalados:
+    gstreamer, gst-plugins-base, gst-plugins-bad,
+    gst-plugins-ugly, gst-libav
+
+Faltando:
+    gst-plugins-good   <- fornece autoaudiosink/pulsesink
+    gst-plugin-pipewire (opcional, recomendado)
+
+
+==================================================
+5. CORREÇÃO
+==================================================
+
+Instalar os plugins que faltam:
+
+    sudo pacman -S --needed gst-plugins-good gst-plugin-pipewire
+
+Observação: seu áudio roda em PipeWire 1.6.10
+(PulseAudio on PipeWire), então pulsesink funcionará normalmente.
+
+Não é necessário rebuildar o Savanna. Depois de instalar:
+
+    savanna --new-window https://www.youtube.com/
+
+Para confirmar que o crash acabou:
+
+    gst-inspect-1.0 autoaudiosink
+    # deve listar o elemento, sem "Nenhum elemento"
+
+    journalctl --user -b --since "5 min ago" | grep -i "web process"
+
+
+==================================================
+6. OBSERVAÇÕES
+==================================================
+
+- A preferência "Fix para placas NVIDIA" está ATIVADA
+  (enable-nvidia-workaround=true). Ela não é a causa deste crash;
+  o gatilho é o sink de áudio ausente. Mantenha-a como está se ela
+  resolveu o vídeo verde em H.264.
+
+- Aviso secundário no log, sem relação com o crash:
+    Gtk-WARNING: Theme parser error: savanna.css:120:3-13:
+    No property named "text-align"
+  É apenas uma propriedade CSS não suportada pelo GTK; não impede
+  o carregamento de páginas.
+
+- Avisos do libenchant (libaspell/libhspell/libnuspell/libvoikko)
+  são corretores ortográficos opcionais ausentes e também não
+  afetam o YouTube.

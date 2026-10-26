@@ -7,7 +7,7 @@ html {
 
 .start-page {
   min-height: 100vh;
-  background: url("ephy-resource:///org/gnome/epiphany/page-templates/savanna-wallpaper.svg") center / cover fixed;
+  background: url("ephy-resource:///org/gnome/epiphany/page-templates/savana-wallpaper.svg") center / cover fixed;
   box-sizing: border-box;
   padding: clamp(48px, 9vh, 100px) 8% 90px;
 }
@@ -86,7 +86,7 @@ body:has(#show-wallpaper:not(:checked)) { background: #e4e9e9; }
 
 /* Colors match the charcoal toolbar in dark.png. */
 html[data-theme="dark"] { color-scheme: dark; color: #ebebeb; background: #252525; }
-html[data-theme="dark"] .start-page { background: url("ephy-resource:///org/gnome/epiphany/page-templates/savanna-wallpaper-dark.svg") center / cover fixed; color: #ebebeb; }
+html[data-theme="dark"] .start-page { background: url("ephy-resource:///org/gnome/epiphany/page-templates/savana-wallpaper-dark.svg") center / cover fixed; color: #ebebeb; }
 html[data-theme="dark"] .welcome-card { background: #303030e8; border-color: #4b4b4b; box-shadow: 0 8px 30px #0002; }
 html[data-theme="dark"] .welcome-card p,
 html[data-theme="dark"] .empty-state { color: #b4b4b4; }

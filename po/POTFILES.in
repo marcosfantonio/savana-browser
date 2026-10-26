@@ -58,7 +58,7 @@ src/ephy-page-menu-button.c
 src/ephy-passwords-view.c
 src/ephy-privacy-report.c
 src/ephy-security-dialog.c
-src/ephy-savanna-sidebar.c
+src/ephy-savana-sidebar.c
 src/ephy-global-menu.c
 src/ephy-session.c
 src/ephy-shell.c

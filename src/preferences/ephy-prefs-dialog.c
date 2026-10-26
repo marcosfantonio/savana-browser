@@ -55,6 +55,19 @@ struct _EphyPrefsDialog {
 
 G_DEFINE_FINAL_TYPE (EphyPrefsDialog, ephy_prefs_dialog, ADW_TYPE_PREFERENCES_DIALOG)
 
+static void
+prefs_dialog_update_color_scheme (AdwStyleManager *manager,
+                                  GParamSpec      *pspec,
+                                  GtkWidget       *dialog)
+{
+  (void)pspec;
+
+  if (adw_style_manager_get_dark (manager))
+    gtk_widget_add_css_class (dialog, "savana-preferences-dark");
+  else
+    gtk_widget_remove_css_class (dialog, "savana-preferences-dark");
+}
+
 static gboolean
 on_closed (EphyPrefsDialog *prefs_dialog)
 {
@@ -198,7 +211,12 @@ static void
 ephy_prefs_dialog_init (EphyPrefsDialog *dialog)
 {
   EphySearchEngineListBox *search_engine_list_box;
+  AdwStyleManager *style_manager = adw_style_manager_get_default ();
 
+  gtk_widget_add_css_class (GTK_WIDGET (dialog), "savana-preferences");
+  prefs_dialog_update_color_scheme (style_manager, NULL, GTK_WIDGET (dialog));
+  g_signal_connect_object (style_manager, "notify::dark",
+                           G_CALLBACK (prefs_dialog_update_color_scheme), dialog, 0);
   gtk_widget_init_template (GTK_WIDGET (dialog));
 
   gtk_widget_set_size_request (GTK_WIDGET (dialog), 360, 200);

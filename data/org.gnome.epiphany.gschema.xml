@@ -199,9 +199,14 @@
 			<description>Hide cookie banners.</description>
 		</key>
 		<key type="b" name="enable-nvidia-workaround">
-			<default>false</default>
+			<default>true</default>
 			<summary>Enable NVIDIA graphics workaround</summary>
 			<description>Use alternate WebKit graphics and video presentation paths to work around flickering or black/green video on NVIDIA systems.</description>
+		</key>
+		<key type="b" name="enable-memory-guard">
+			<default>true</default>
+			<summary>Enable memory protection</summary>
+			<description>Limit memory and swap usage for Savana when running in a dedicated systemd user application cgroup.</description>
 		</key>
 		<key type="s" name="user-agent">
 			<default>''</default>

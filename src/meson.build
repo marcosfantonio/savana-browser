@@ -42,12 +42,13 @@ libephymain_sources = [
   'ephy-location-controller.c',
   'ephy-location-entry.c',
   'ephy-lockdown.c',
+  'ephy-memory-guard.c',
   'ephy-mouse-gesture-controller.c',
   'ephy-page-menu-button.c',
   'ephy-passwords-view.c',
   'ephy-privacy-report.c',
   'ephy-security-dialog.c',
-  'ephy-savanna-sidebar.c',
+  'ephy-savana-sidebar.c',
   'ephy-session.c',
   'ephy-shell.c',
   'ephy-site-menu-button.c',
@@ -212,7 +213,7 @@ search_provider_sources = [
   search_provider_codegen
 ]
 
-executable('savanna-search-provider',
+executable('savana-search-provider',
   search_provider_sources,
   dependencies: ephymain_dep,
   install: true,
@@ -221,8 +222,8 @@ executable('savanna-search-provider',
 )
 
 webapp_codegen = gnome.gdbus_codegen('ephy-webapp-provider-generated',
-  'webapp-provider/com.savanna.Browser.WebAppProvider.xml',
-  interface_prefix: 'com.savanna.Browser',
+  'webapp-provider/com.savana.Browser.WebAppProvider.xml',
+  interface_prefix: 'com.savana.Browser',
   namespace: 'Ephy'
 )
 
@@ -232,7 +233,7 @@ webapp_provider_sources = [
   webapp_codegen
 ]
 
-executable('savanna-webapp-provider',
+executable('savana-webapp-provider',
   webapp_provider_sources,
   dependencies: ephymain_dep,
   install: true,
@@ -265,7 +266,7 @@ epiphany_sources = [
   readability_resources
 ]
 
-savanna = executable('savanna',
+savana = executable('savana',
   epiphany_sources,
   dependencies: ephymain_dep,
   install: true,

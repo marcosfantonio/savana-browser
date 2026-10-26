@@ -92,12 +92,12 @@ if get_option('unit_tests').enabled()
        env: envs
   )
 
-  savanna_ui_test = executable('test-savanna-ui',
-    'savanna-ui-test.c', resources, readability_resources,
+  savana_ui_test = executable('test-savana-ui',
+    'savana-ui-test.c', resources, readability_resources,
     dependencies: ephymain_dep,
     c_args: test_cargs,
   )
-  test('Savanna interface test', savanna_ui_test, env: envs, timeout: 60)
+  test('Savana interface test', savana_ui_test, env: envs, timeout: 60)
 
   migration_test = executable('test-ephy-migration',
     'ephy-migration-test.c',

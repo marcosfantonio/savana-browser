@@ -23,9 +23,9 @@ libdir = join_paths(prefix, get_option('libdir'))
 libexecdir = join_paths(prefix, get_option('libexecdir'))
 liblocaledir = join_paths(prefix, libdir, 'locale')
 localedir = join_paths(prefix, get_option('localedir'))
-pkgdatadir = join_paths(datadir, 'savanna')
-pkglibdir = join_paths(libdir, 'savanna')
-pkglibexecdir = join_paths(libexecdir, 'savanna')
+pkgdatadir = join_paths(datadir, 'savana')
+pkglibdir = join_paths(libdir, 'savana')
+pkglibexecdir = join_paths(libexecdir, 'savana')
 servicedir = join_paths(datadir, 'dbus-1', 'services')
 webprocessextensionsdir = join_paths(pkglibdir, 'web-process-extensions')
 
@@ -33,7 +33,7 @@ iso_codes = dependency('iso-codes')
 iso_codes_prefix = iso_codes.get_variable(pkgconfig: 'prefix')
 
 profile = get_option('profile')
-application_id = 'com.savanna.Browser'
+application_id = 'com.savana.Browser'
 
 if profile != ''
   application_id = 'org.gnome.Epiphany.' + profile

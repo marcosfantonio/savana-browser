@@ -60,7 +60,7 @@
 #include "ephy-prefs.h"
 #include "ephy-reader-handler.h"
 #include "ephy-security-dialog.h"
-#include "ephy-savanna-sidebar.h"
+#include "ephy-savana-sidebar.h"
 #include "ephy-session.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
@@ -1265,13 +1265,13 @@ sync_tab_address (EphyWebView *view,
 
   address = ephy_web_view_get_display_address (view);
   if (ephy_web_view_is_overview (view) || ephy_web_view_is_newtab (view) || ephy_web_view_get_is_blank (view))
-    gtk_widget_remove_css_class (GTK_WIDGET (window), "savanna-compact");
+    gtk_widget_remove_css_class (GTK_WIDGET (window), "savana-compact");
   else
-    gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-compact");
+    gtk_widget_add_css_class (GTK_WIDGET (window), "savana-compact");
   if (ephy_web_view_is_newtab (view) || ephy_web_view_get_is_blank (view))
-    gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-empty-tab");
+    gtk_widget_add_css_class (GTK_WIDGET (window), "savana-empty-tab");
   else
-    gtk_widget_remove_css_class (GTK_WIDGET (window), "savanna-empty-tab");
+    gtk_widget_remove_css_class (GTK_WIDGET (window), "savana-empty-tab");
   typed_address = ephy_web_view_get_typed_address (view);
   is_internal_page = g_str_has_prefix (address, "about:") || g_str_has_prefix (address, "ephy-about:");
 
@@ -4546,11 +4546,11 @@ sync_browser_dark_style (AdwStyleManager *manager,
                           GParamSpec *pspec,
                           EphyWindow *self)
 {
-  gtk_widget_add_css_class (GTK_WIDGET (self), "savanna-window");
+  gtk_widget_add_css_class (GTK_WIDGET (self), "savana-window");
   if (adw_style_manager_get_dark (manager))
-    gtk_widget_add_css_class (GTK_WIDGET (self), "savanna-dark");
+    gtk_widget_add_css_class (GTK_WIDGET (self), "savana-dark");
   else
-    gtk_widget_remove_css_class (GTK_WIDGET (self), "savanna-dark");
+    gtk_widget_remove_css_class (GTK_WIDGET (self), "savana-dark");
 }
 
 static void
@@ -4655,13 +4655,13 @@ ephy_window_constructed (GObject *object)
     GtkWidget *extensions = gtk_button_new_from_icon_name ("application-x-addon-symbolic");
 
     window->bookmarks_dialog = ephy_bookmarks_dialog_new ();
-    gtk_widget_add_css_class (window->bookmarks_dialog, "savanna-bookmarks");
-    sidebar = ephy_savanna_sidebar_new (window, window->bookmarks_dialog);
+    gtk_widget_add_css_class (window->bookmarks_dialog, "savana-bookmarks");
+    sidebar = ephy_savana_sidebar_new (window, window->bookmarks_dialog);
 
-    gtk_widget_add_css_class (sidebar_box, "savanna-sidebar-pane");
+    gtk_widget_add_css_class (sidebar_box, "savana-sidebar-pane");
     gtk_widget_set_vexpand (sidebar, TRUE);
     gtk_overlay_set_child (GTK_OVERLAY (sidebar_box), sidebar);
-    gtk_widget_add_css_class (tools, "savanna-sidebar-tools");
+    gtk_widget_add_css_class (tools, "savana-sidebar-tools");
     gtk_widget_set_halign (tools, GTK_ALIGN_CENTER);
     gtk_widget_set_valign (tools, GTK_ALIGN_END);
     gtk_widget_set_tooltip_text (extensions, _("Extensions"));
@@ -4674,7 +4674,7 @@ ephy_window_constructed (GObject *object)
     adw_overlay_split_view_set_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->navigation_split_view), sidebar_box);
   }
   window->tab_bar = adw_tab_bar_new ();
-  gtk_widget_add_css_class (GTK_WIDGET (window->tab_bar), "savanna-tab-bar");
+  gtk_widget_add_css_class (GTK_WIDGET (window->tab_bar), "savana-tab-bar");
 
   adw_tab_bar_set_view (window->tab_bar, ephy_tab_view_get_tab_view (window->tab_view));
   adw_tab_overview_set_view (ADW_TAB_OVERVIEW (window->overview), ephy_tab_view_get_tab_view (window->tab_view));
@@ -5521,15 +5521,15 @@ void
 ephy_window_toggle_bookmarks (EphyWindow *self)
 {
   gboolean showing_bookmarks = g_strcmp0 (gtk_stack_get_visible_child_name (
-    GTK_STACK (g_object_get_data (G_OBJECT (self), "savanna-sidebar-stack"))), "bookmarks") == 0;
+    GTK_STACK (g_object_get_data (G_OBJECT (self), "savana-sidebar-stack"))), "bookmarks") == 0;
 
   if (!showing_bookmarks) {
-    ephy_savanna_sidebar_show_bookmarks (self, TRUE);
+    ephy_savana_sidebar_show_bookmarks (self, TRUE);
     adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->navigation_split_view), TRUE);
     ephy_bookmarks_dialog_set_is_editing (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog), FALSE);
     ephy_bookmarks_dialog_focus (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog));
   } else {
-    ephy_savanna_sidebar_show_bookmarks (self, FALSE);
+    ephy_savana_sidebar_show_bookmarks (self, FALSE);
     adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->navigation_split_view), FALSE);
     ephy_bookmarks_dialog_clear_search (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog));
   }

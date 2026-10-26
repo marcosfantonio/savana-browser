@@ -1,26 +1,26 @@
-# Savanna
+# Savana
 
-**Savanna** is a Linux web browser based on GNOME Web (Epiphany) and WebKitGTK. It builds on Epiphany's browsing engine while providing its own interface, with tab groups, a sidebar, saved content, and KDE Plasma global menu support.
+**Savana** is a Linux web browser based on GNOME Web (Epiphany) and WebKitGTK. It builds on Epiphany's browsing engine while providing its own interface, with tab groups, a sidebar, saved content, and KDE Plasma global menu support.
 
-The installed application is called **`savanna`**. It has its own application ID (`com.savanna.Browser`) and does not install an executable named `epiphany`.
+The installed application is called **`savana`**. It has its own application ID (`com.savana.Browser`) and does not install an executable named `epiphany`.
 
 ## Screenshots
 
-![Savanna browser](screenshots/screen2.png)
+![Savana browser](screenshots/screen2.png)
 
-![Savanna screenshot](screenshots/screen3.png)
+![Savana screenshot](screenshots/screen3.png)
 
-![Savanna screenshot](screenshots/screen4.png)
+![Savana screenshot](screenshots/screen4.png)
 
-![Savanna screenshot](screenshots/screen1.png)
+![Savana screenshot](screenshots/screen1.png)
 
-![Savanna screenshot](screenshots/screen5.png)
+![Savana screenshot](screenshots/screen5.png)
 
-![Savanna screenshot](screenshots/screen6.png)
+![Savana screenshot](screenshots/screen6.png)
 
-![Savanna screenshot](screenshots/screen7.png)
+![Savana screenshot](screenshots/screen7.png)
 
-![Savanna screenshot](screenshots/screen8.png)
+![Savana screenshot](screenshots/screen8.png)
 
 ## Easy Linux installation
 
@@ -38,8 +38,8 @@ sudo pacman -S --needed base-devel git meson ninja pkgconf \
 Clone, build, and install for your user (installation does not require `sudo`):
 
 ```sh
-git clone https://github.com/marcosfantonio/savanna.git savanna-browser
-cd savanna-browser
+git clone https://github.com/marcosfantonio/savana-browser.git savana-browser
+cd savana-browser
 meson setup build --prefix="$HOME/.local" -Ddeveloper_mode=true
 meson install -C build --quiet
 ```
@@ -51,16 +51,29 @@ compiles and installs it. The installation is per-user and does not require
 while `itstool` and `blueprint-compiler` are needed for help and UI generation.
 Meson lists the global-menu integrations enabled in its summary.
 
+For media playback at runtime (including YouTube audio), install the GStreamer
+plugins as well. On Arch/CachyOS, `gst-plugins-good` provides the
+`autoaudiosink` and `pulsesink` elements required for audio output;
+`gst-plugin-pipewire` is recommended when the system uses PipeWire:
+
+```sh
+sudo pacman -S --needed gst-plugins-good gst-plugin-pipewire
+```
+
+These are runtime packages, not Savana build dependencies. Without
+`gst-plugins-good`, WebKit may fail while initializing media playback and the
+page process can terminate when opening sites such as YouTube.
+
 Launch the browser from a terminal:
 
 ```sh
-~/.local/bin/savanna
+~/.local/bin/savana
 ```
 
 The installed desktop file is
-`~/.local/share/applications/com.savanna.Browser.desktop` and launches
-`savanna` (not `epiphany`). If `savanna` is not found, either run
-`~/.local/bin/savanna` or add `~/.local/bin` to your `PATH`.
+`~/.local/share/applications/com.savana.Browser.desktop` and launches
+`savana` (not `epiphany`). If `savana` is not found, either run
+`~/.local/bin/savana` or add `~/.local/bin` to your `PATH`.
 
 ### Other distributions
 
@@ -92,11 +105,11 @@ meson install -C build --quiet
 This recompiles changed files and installs the application again in `~/.local`. To run the interface tests:
 
 ```sh
-meson test -C build 'Savanna interface test' --print-errorlogs
+meson test -C build 'Savana interface test' --print-errorlogs
 ```
 
-To verify the installed command, run `savanna --version` (or
-`~/.local/bin/savanna --version` if `~/.local/bin` is not on your `PATH`).
+To verify the installed command, run `savana --version` (or
+`~/.local/bin/savana --version` if `~/.local/bin` is not on your `PATH`).
 Warnings about deprecated inherited `Gtk.TreeView` usage or individual
 translation merge conflicts may appear during the build; they do not by
 themselves mean compilation failed.
@@ -113,4 +126,4 @@ See [`docs/global-menu.md`](docs/global-menu.md) for global menu compatibility a
 
 ## Development
 
-Savanna is free software licensed under GPL-3.0-or-later. Most modules still use the upstream Epiphany `ephy-*` internal names. Changes to Savanna's interface and project-specific integrations should follow the architecture and behaviors documented above.
+Savana is free software licensed under GPL-3.0-or-later. Most modules still use the upstream Epiphany `ephy-*` internal names. Changes to Savana's interface and project-specific integrations should follow the architecture and behaviors documented above.

@@ -59,6 +59,7 @@ struct _PrefsGeneralPage {
   GtkWidget *popups_allow_row;
   GtkWidget *cookie_banner_allow_row;
   GtkWidget *nvidia_workaround_row;
+  GtkWidget *memory_guard_row;
 
   /* Homepage */
   GtkWidget *homepage_box;
@@ -961,6 +962,7 @@ prefs_general_page_class_init (PrefsGeneralPageClass *klass)
   gtk_widget_class_bind_template_child (widget_class, PrefsGeneralPage, popups_allow_row);
   gtk_widget_class_bind_template_child (widget_class, PrefsGeneralPage, cookie_banner_allow_row);
   gtk_widget_class_bind_template_child (widget_class, PrefsGeneralPage, nvidia_workaround_row);
+  gtk_widget_class_bind_template_child (widget_class, PrefsGeneralPage, memory_guard_row);
 
   /* Homepage */
   gtk_widget_class_bind_template_child (widget_class, PrefsGeneralPage, homepage_box);
@@ -1197,6 +1199,12 @@ setup_general_page (PrefsGeneralPage *general_page)
   g_settings_bind (web_settings,
                    EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND,
                    general_page->nvidia_workaround_row,
+                   "active",
+                   G_SETTINGS_BIND_DEFAULT);
+
+  g_settings_bind (web_settings,
+                   EPHY_PREFS_WEB_ENABLE_MEMORY_GUARD,
+                   general_page->memory_guard_row,
                    "active",
                    G_SETTINGS_BIND_DEFAULT);
 

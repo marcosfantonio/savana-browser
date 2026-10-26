@@ -22,12 +22,12 @@ template $EphyHeaderBar: Adw.Bin {
     [end]
     Box {
       valign: center;
-      styles ["savanna-controls"]
+      styles ["savana-controls"]
 
       $EphyActionBarEnd action_bar_end {}
 
       Button share_button {
-        icon-name: "savanna-share-symbolic";
+        icon-name: "savana-share-symbolic";
         tooltip-text: _("Copy Page Address");
         clicked => $share_button_clicked_cb();
       }
@@ -39,7 +39,7 @@ template $EphyHeaderBar: Adw.Bin {
       }
 
       Button tabs_button {
-        icon-name: "savanna-tabs-symbolic";
+        icon-name: "savana-tabs-symbolic";
         action-name: "win.tabs-view";
         tooltip-text: _("View Open Tabs");
       }

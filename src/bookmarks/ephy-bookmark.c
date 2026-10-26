@@ -70,7 +70,7 @@ G_DEFINE_FINAL_TYPE_WITH_CODE (EphyBookmark, ephy_bookmark, G_TYPE_OBJECT,
 typedef enum {
   PROP_TIME_ADDED = 1,  /* Epiphany */
   PROP_ICON,            /* Epiphany */
-  PROP_DESCRIPTION,     /* Savanna local metadata, not synced */
+  PROP_DESCRIPTION,     /* Savana local metadata, not synced */
   PROP_ID,              /* Firefox Sync */
   PROP_TITLE,           /* Epiphany && Firefox Sync */
   PROP_BMK_URI,         /* Epiphany && Firefox Sync */
@@ -424,6 +424,14 @@ description_path (const char *url)
 {
   g_autofree char *hash = g_compute_checksum_for_string (G_CHECKSUM_SHA256, url, -1);
 
+  return g_build_filename (ephy_cache_dir (), "savana-bookmark-descriptions", hash, NULL);
+}
+
+static char *
+legacy_description_path (const char *url)
+{
+  g_autofree char *hash = g_compute_checksum_for_string (G_CHECKSUM_SHA256, url, -1);
+
   return g_build_filename (ephy_cache_dir (), "savanna-bookmark-descriptions", hash, NULL);
 }
 
@@ -492,9 +500,11 @@ ephy_bookmark_set_url (EphyBookmark *self,
 
   if (g_set_str (&self->url, url)) {
     g_autofree char *path = description_path (url);
+    g_autofree char *legacy_path = legacy_description_path (url);
 
     g_clear_pointer (&self->description, g_free);
-    g_file_get_contents (path, &self->description, NULL, NULL);
+    if (!g_file_get_contents (path, &self->description, NULL, NULL))
+      g_file_get_contents (legacy_path, &self->description, NULL, NULL);
     if (self->description && !g_utf8_validate (self->description, -1, NULL))
       g_clear_pointer (&self->description, g_free);
     g_object_notify_by_pspec (G_OBJECT (self), obj_properties[PROP_DESCRIPTION]);

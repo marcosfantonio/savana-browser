@@ -1,6 +1,6 @@
 # Linux global menus
 
-Savanna exports both the native GTK `org.gtk.Menus` model and a per-window
+Savana exports both the native GTK `org.gtk.Menus` model and a per-window
 `com.canonical.dbusmenu` tree. Exporting the GTK model alone is **not** sufficient
 for KDE Plasma's global-menu widget.
 
@@ -59,14 +59,14 @@ The exporter lives at the application's D-Bus object path followed by
 `/dbusmenu/<window-id>`. For the default build and first window:
 
 ```sh
-gdbus call --session --dest com.savanna.Browser \
-  --object-path /com/savanna/Browser/dbusmenu/1 \
+gdbus call --session --dest com.savana.Browser \
+  --object-path /com/savana/Browser/dbusmenu/1 \
   --method com.canonical.dbusmenu.GetLayout 0 -1 '[]'
 ```
 
 The layout should contain the seven top-level menus (File, Edit, View, History,
 Bookmarks, Window and Help). The application name is supplied by the desktop
-integration and is not repeated as a Savanna menu. On Wayland,
+integration and is not repeated as a Savana menu. On Wayland,
 `WAYLAND_DEBUG=client` shows `org_kde_kwin_appmenu.set_address` for the window.
 On X11, `xprop` shows the two `_KDE_NET_WM_APPMENU_*` properties. D-Bus layout
 export and native surface registration must **both** work; a successful

@@ -1,9 +1,9 @@
 # Instructions for coding agents
 
-Savanna is a separately branded browser based on GNOME Epiphany/WebKitGTK. Keep
+Savana is a separately branded browser based on GNOME Epiphany/WebKitGTK. Keep
 upstream `ephy-*` symbol names where they are part of the inherited browser
 architecture, but do not make the installed browser executable, application
-launcher, or Savanna-owned private data/library directories collide with the
+launcher, or Savana-owned private data/library directories collide with the
 system Epiphany installation.
 
 ## Before editing
@@ -27,10 +27,10 @@ Report failures rather than claiming installation succeeded. Run relevant tests
 as well; the focused interface test is:
 
 ```sh
-meson test -C build 'Savanna interface test' --print-errorlogs
+meson test -C build 'Savana interface test' --print-errorlogs
 ```
 
-The main installed executable and desktop launch command are `savanna`, not
+The main installed executable and desktop launch command are `savana`, not
 `epiphany`. Never add an installed `epiphany` alias or change the desktop Exec
 back to `epiphany`. The existing build directory may retain historical target
 files; the installed launcher is the authoritative name.

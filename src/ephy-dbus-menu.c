@@ -311,7 +311,7 @@ unregister_surface (WindowMenu *menu)
 static void
 register_surface (GtkApplicationWindow *window)
 {
-  WindowMenu *menu = g_object_get_data (G_OBJECT (window), "savanna-dbusmenu");
+  WindowMenu *menu = g_object_get_data (G_OBJECT (window), "savana-dbusmenu");
   GtkApplication *application = gtk_window_get_application (GTK_WINDOW (window));
   GDBusConnection *connection = g_application_get_dbus_connection (G_APPLICATION (application));
   GdkSurface *surface = gtk_native_get_surface (GTK_NATIVE (window));
@@ -367,7 +367,7 @@ export_checked (GObject *source,
                  gpointer data)
 {
   g_autoptr (GtkApplicationWindow) window = data;
-  WindowMenu *menu = g_object_get_data (G_OBJECT (window), "savanna-dbusmenu");
+  WindowMenu *menu = g_object_get_data (G_OBJECT (window), "savana-dbusmenu");
   g_autoptr (GError) error = NULL;
   g_autoptr (GVariant) reply = g_dbus_connection_call_finish (G_DBUS_CONNECTION (source), result, &error);
   const char *xml = NULL;
@@ -389,7 +389,7 @@ static gboolean
 register_surface_idle (gpointer data)
 {
   GtkApplicationWindow *window = data;
-  WindowMenu *menu = g_object_get_data (G_OBJECT (window), "savanna-dbusmenu");
+  WindowMenu *menu = g_object_get_data (G_OBJECT (window), "savana-dbusmenu");
 
   menu->registration_idle = 0;
   if (!gtk_widget_get_mapped (GTK_WIDGET (window)))
@@ -468,7 +468,7 @@ ephy_global_menu_attach (GtkApplicationWindow *window)
   model = gtk_application_get_menubar (application);
   if (!model || !g_application_get_is_registered (G_APPLICATION (application)) ||
       !g_application_get_dbus_connection (G_APPLICATION (application)) ||
-      g_object_get_data (G_OBJECT (window), "savanna-dbusmenu"))
+      g_object_get_data (G_OBJECT (window), "savana-dbusmenu"))
     return;
   menu = g_new0 (WindowMenu, 1);
   menu->connection = g_object_ref (g_application_get_dbus_connection (G_APPLICATION (application)));
@@ -479,7 +479,7 @@ ephy_global_menu_attach (GtkApplicationWindow *window)
   menu->server = dbusmenu_server_new (menu->path);
   dbusmenu_server_set_root (menu->server, root);
   g_object_unref (root);
-  g_object_set_data_full (G_OBJECT (window), "savanna-dbusmenu", menu, window_menu_free);
+  g_object_set_data_full (G_OBJECT (window), "savana-dbusmenu", menu, window_menu_free);
   g_signal_connect (window, "map", G_CALLBACK (window_mapped), menu);
   g_signal_connect (window, "unmap", G_CALLBACK (window_unmapped), menu);
   g_signal_connect (window, "unrealize", G_CALLBACK (window_unrealized), menu);
@@ -492,7 +492,7 @@ const char *
 ephy_global_menu_get_dbusmenu_path (GtkApplicationWindow *window)
 {
 #if HAVE_DBUSMENU
-  WindowMenu *menu = g_object_get_data (G_OBJECT (window), "savanna-dbusmenu");
+  WindowMenu *menu = g_object_get_data (G_OBJECT (window), "savana-dbusmenu");
 
   return menu ? menu->path : NULL;
 #else

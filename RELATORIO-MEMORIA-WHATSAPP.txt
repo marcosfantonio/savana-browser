@@ -1,0 +1,241 @@
+================================================================================
+SAVANNA + WHATSAPP WEB — RELATÓRIO DE INVESTIGAÇÃO DE FALTA DE MEMÓRIA
+Data: 26/10/2026
+Sistema: CachyOS / KDE Plasma Wayland / WebKitGTK 2.54.2 / GTK4 + libadwaita
+Savanna: versão 51.1, prefixo de instalação /home/samuel/.local
+================================================================================
+
+1. SINTOMA
+--------------------------------------------------------------------------------
+Ao enviar um vídeo pelo WhatsApp Web, o Savanna inteiro era fechado com a
+mensagem de "falta de memória".
+
+O navegador NÃO estava quebrando sozinho. O systemd-oomd matava o cgroup
+inteiro do aplicativo (UI + processos WebKit) quando o uso de memória/swap do
+usuário passava de 90%.
+
+Evidências do journal:
+  - "systemd-oomd killed 275 process(es)"
+  - pico de memória do app: ~11,1 GB
+  - pico de swap do app: ~10,8 GB
+  - "Marked ... for killing due to memory used (14179467264)/total
+     (14487666688) and swap used (13134200832)/total (14487121920) being more
+     than 90.00%"
+
+Linha do tempo:
+  - 14:41  Savanna iniciado
+  - 14:43  diálogo de arquivo aberto
+  - 14:45:34  processo web encerrado por pedido da API
+  - 14:46:34  systemd-oomd matou o app inteiro
+
+Vídeo usado no teste:
+  /home/samuel/Vídeos/Capturas de vídeo/Gravação_de_tela_20261026_144111.mp4
+  4,1 MB, 51 s, 1920x1080, H.264, 37 fps (Lavf63)
+  O tamanho do arquivo NÃO é o problema: a transcodificação client-side
+  consome muita memória.
+
+
+2. HIPÓTESE DESCARTADA: WORKAROUND NVIDIA / REPRODUÇÃO DE VÍDEO
+--------------------------------------------------------------------------------
+Foi testada a reprodução do vídeo 1080p no MiniBrowser com e sem o workaround
+NVIDIA (WEBKIT_DMABUF_RENDERER_FORCE_SHM=1, WEBKIT_GST_DISABLE_GL_SINK=1,
+WEBKIT_USE_SKIA_FOR_COMPOSITION=0, __NV_DISABLE_EXPLICIT_SYNC=1, AV1 desligado).
+
+Resultado:
+  - sem workaround: RSS estável em ~237 MB
+  - com workaround: RSS estável em ~273 MB
+  - nenhum crescimento de memória durante os 90 s de reprodução
+
+Conclusão: o workaround NVIDIA não vaza memória e a simples reprodução do
+vídeo não explica o incidente.
+
+
+3. REPRODUÇÃO DO PROBLEMA NO WEBCODECS
+--------------------------------------------------------------------------------
+Foi criada uma página de teste em /tmp/opencode/wa-test/codecs.html que:
+  - cria um canvas 1920x1080;
+  - gera 1900 VideoFrames (≈51 s a 37 fps);
+  - envia cada frame para um VideoEncoder H.264 (avc1.42001f).
+
+Resultado medido no WebKitGTK 2.54.2:
+  - encodeQueueSize cresceu linearmente até ~1648;
+  - RSS do processo web chegou a ~9,9 GB;
+  - a página travou/foi encerrada;
+  - após o flush, a memória voltou para ~130 MB.
+
+Isso mostra que o VideoEncoder do WebKitGTK não aplica backpressure de forma
+eficaz: o site enfileira todos os frames e cada frame 1080p ocupa vários MB.
+É um bug/limitação real do WebKit, mas o upload do WhatsApp NÃO usa WebCodecs
+(ver seção 4).
+
+
+4. O QUE O WHATSAPP WEB REALMENTE USA NO ENVIO DE VÍDEO
+--------------------------------------------------------------------------------
+A análise do bundle JS em cache (~/.cache/epiphany/WebKitCache) mostrou:
+
+  shouldUseWasmMediaWorkerForFile =
+      file.type.startsWith("video/") && typeof BigInt === "function";
+
+Ou seja, para QUALQUER vídeo (com BigInt disponível), o WhatsApp escolhe o
+worker WASM de mídia. Módulos identificados:
+
+  - WAWebMediaAnalyzer
+  - WAWebMediaWorkerProxy
+  - WAWebMediaWasmWorkerClient
+  - WAWebMediaWasmWorker / transcodeToMp4InWorker
+  - WAWebMediaWasmWorkerResource
+
+Fluxo observado no código:
+  1. o arquivo é lido inteiro em um ArrayBuffer;
+  2. os bytes são transferidos para um Web Worker;
+  3. o worker faz transcodeToMp4InWorker (WASM, provavelmente ffmpeg);
+  4. o resultado é devolvido como Blob MP4.
+
+As referências a VideoEncoder/VideoDecoder no bundle estavam apenas no código
+de VoIP (WAWebVoipVideoWebCodecsRenderer), não no caminho de upload.
+
+Conclusão: o estouro de memória no incidente foi causado pelo transcode WASM
+do WhatsApp, que decodifica/re-encoda o vídeo 1080p dentro do processo web.
+O pico observado no incidente foi ~11 GB; o teste isolado de WebCodecs também
+chegou a ~10 GB e serve como demonstração do mesmo tipo de falha.
+
+
+5. EXPERIMENTOS COM CGROUP / OOM
+--------------------------------------------------------------------------------
+Foi confirmado que:
+  - o Savanna roda em um cgroup dedicado do systemd, por exemplo:
+    /user.slice/user-1000.slice/user@1000.service/app.slice/
+      app-com.savanna.Browser@<uuid>.service
+  - os processos WebKitWebProcess usam oom_score_adj=200;
+  - o usuário tem permissão de escrita nos arquivos memory.max,
+    memory.high e memory.swap.max desse cgroup;
+  - o user slice tem ManagedOOMSwap=kill e ManagedOOMMemoryPressure=kill.
+
+Teste com MiniBrowser em um scope com MemoryMax=2G:
+  - o kernel matou SOMENTE o WebKitWebProcess, com ~2,04 GB;
+  - o log mostrou CONSTRAINT_MEMCG e oom_score_adj=200;
+  - o processo de UI do MiniBrowser não foi escolhido pelo kernel
+    (o MiniBrowser encerrou porque era a única aba, comportamento dele).
+
+Conclusão: um limite no cgroup do app converte o OOM catastrófico em queda de
+uma única aba. O Savanna já trata a morte do processo web e mostra a página de
+erro da aba.
+
+
+6. CORREÇÃO IMPLEMENTADA NO SAVANNA
+--------------------------------------------------------------------------------
+Arquivos novos:
+  - src/ephy-memory-guard.c
+  - src/ephy-memory-guard.h
+
+Arquivos alterados:
+  - src/ephy-main.c                (chamada no início do main)
+  - src/meson.build                (compilação do novo arquivo)
+  - data/org.gnome.epiphany.gschema.xml  (chave enable-memory-guard)
+  - lib/ephy-prefs.h               (define da chave)
+  - src/preferences/prefs-general-page.c (binding do switch)
+  - src/resources/gtk/prefs-general-page.blp (switch na UI)
+  - tests/savanna-ui-test.c        (teste do switch)
+  - docs/architecture.md           (documentação)
+
+Funcionamento do guard:
+  - lê /proc/self/cgroup (somente cgroup v2);
+  - só age se o caminho estiver em /user.slice/ e o cgroup contiver
+    exatamente o processo atual (cgroup dedicado do app);
+  - não mexe em cgroup compartilhado (terminal, sessão, etc.);
+  - respeita limites já configurados (só preenche o que ainda está em "max");
+  - calcula:
+      MemoryMax     = metade da RAM física, entre 1,5 GiB e 8 GiB
+      MemorySwapMax = um quarto da RAM, entre 512 MiB e 4 GiB
+  - aplica via D-Bus do systemd (SetUnitProperties), para sobreviver a
+    `systemctl --user daemon-reload`;
+  - se o D-Bus não estiver disponível, grava diretamente em memory.max /
+    memory.swap.max como fallback;
+  - como os processos web têm oom_score_adj=200, o kernel mata o processo web
+    problemático e o Savanna continua aberto.
+
+Preferência de UI:
+  Preferências → Geral → Conteúdo Web
+  "Proteção contra falta de memória" (ligada por padrão)
+  Chave: org.gnome.Epiphany.web:/org/gnome/epiphany/web/
+         enable-memory-guard
+  A mudança só vale após reiniciar o Savanna.
+
+
+7. VERIFICAÇÃO
+--------------------------------------------------------------------------------
+Build/instalação:
+  meson install -C build --quiet          → OK
+
+Teste focado:
+  meson test -C build 'Savanna interface test' --print-errorlogs
+  → OK
+
+Teste do guard em um serviço systemd dedicado:
+  systemd-run --user --unit=savanna-guard-final \
+      --service-type=exec --collect \
+      /home/samuel/.local/bin/savanna --private-instance about:blank
+
+  Resultado:
+    MemoryMax     = 7243833344 bytes (~6,75 GiB)
+    MemorySwapMax = 3621916672 bytes (~3,37 GiB)
+    cgroup: 7243833344 / 3621916672
+
+  Depois de `systemctl --user daemon-reload`:
+    cgroup: 7243833344 / 3621916672   (limite preservado)
+
+Cgroup compartilhado (lançamento direto pelo terminal):
+  permaneceu em "max" — o guard não tocou.
+
+Teste anterior com limite de 2 GB:
+  somente o WebKitWebProcess foi morto pelo kernel.
+
+
+8. LIMITAÇÕES E PRÓXIMOS PASSOS
+--------------------------------------------------------------------------------
+O guard impede que o navegador inteiro seja fechado, mas NÃO faz o transcode
+do WhatsApp caber na memória. A aba ainda pode ser encerrada e mostrar a
+página de erro.
+
+Para enviar o vídeo:
+  - usar Anexar → Documento (evita a transcodificação do WhatsApp);
+  - ou reduzir a duração/resolução do vídeo antes de enviar;
+  - ou usar o WhatsApp Desktop/celular para esse arquivo.
+
+Para validar a correção:
+  1. encerrar completamente o Savanna e abrir de novo;
+  2. conferir que a opção "Proteção contra falta de memória" está ligada;
+  3. tentar enviar o vídeo novamente;
+  4. se o navegador inteiro ainda fechar, coletar:
+       journalctl --user -b --since "HH:MM" --no-pager
+
+Recomendação adicional:
+  - reportar upstream ao WebKitGTK o problema de memória do VideoEncoder
+    (fila sem backpressure) e, se possível, ao WhatsApp/Meta o consumo do
+    worker WASM de transcode.
+
+
+9. ARQUIVOS DE TESTE
+--------------------------------------------------------------------------------
+  /tmp/opencode/wa-test/video.mp4    — vídeo de teste (4,1 MB, 51 s, 1080p)
+  /tmp/opencode/wa-test/video.html   — página de reprodução simples
+  /tmp/opencode/wa-test/codecs.html  — teste de WebCodecs VideoEncoder
+  /tmp/opencode/wa-test/serve.py     — servidor HTTP local com suporte a Range
+  /tmp/opencode/wa-test/RELATORIO-MEMORIA-WHATSAPP.txt — este relatório
+
+
+10. COMANDOS ÚTEIS
+--------------------------------------------------------------------------------
+  # Ver a chave:
+  gsettings get org.gnome.Epiphany.web:/org/gnome/epiphany/web/ \
+      enable-memory-guard
+
+  # Verificar o limite aplicado (troque <uuid> pelo unit real):
+  systemctl --user show \
+      app-com.savanna.Browser@<uuid>.service \
+      -p MemoryMax -p MemorySwapMax
+
+  # Teste rápido do servidor local:
+  cd /tmp/opencode/wa-test && python3 serve.py 8778
+
+================================================================================

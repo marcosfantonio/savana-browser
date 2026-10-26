@@ -197,7 +197,7 @@ ephy_downloads_popover_init (EphyDownloadsPopover *popover)
                             popover);
   gtk_list_box_set_activate_on_single_click (GTK_LIST_BOX (popover->downloads_box), TRUE);
   gtk_list_box_set_selection_mode (GTK_LIST_BOX (popover->downloads_box), GTK_SELECTION_NONE);
-  gtk_widget_add_css_class (GTK_WIDGET (popover), "savanna-downloads-popover");
+  gtk_widget_add_css_class (GTK_WIDGET (popover), "savana-downloads-popover");
   gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (scrolled_window), popover->downloads_box);
 
   downloads = ephy_downloads_manager_get_downloads (manager);

@@ -64,7 +64,12 @@ template $PrefsGeneralPage: Adw.PreferencesPage {
 
     Adw.SwitchRow nvidia_workaround_row {
       title: _("Fix para placas NVIDIA");
-      subtitle: _("Marque caso encontre problemas de tela piscando e vídeo preto ou verde. Reinicie o Savanna para aplicar.");
+      subtitle: _("Marque caso encontre problemas de tela piscando e vídeo preto ou verde. Reinicie o Savana para aplicar.");
+    }
+
+    Adw.SwitchRow memory_guard_row {
+      title: _("Proteção contra falta de memória");
+      subtitle: _("Limita a memória e o swap do Savana para evitar que o sistema encerre o navegador. Reinicie para aplicar.");
     }
   }
 

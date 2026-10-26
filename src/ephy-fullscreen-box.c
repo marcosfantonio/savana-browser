@@ -373,7 +373,7 @@ ephy_fullscreen_box_init (EphyFullscreenBox *self)
   self->autohide = TRUE;
 
   toolbar_view = ADW_TOOLBAR_VIEW (adw_toolbar_view_new ());
-  gtk_widget_add_css_class (GTK_WIDGET (toolbar_view), "savanna-toolbar-view");
+  gtk_widget_add_css_class (GTK_WIDGET (toolbar_view), "savana-toolbar-view");
   adw_toolbar_view_set_top_bar_style (toolbar_view, ADW_TOOLBAR_RAISED_BORDER);
   adw_toolbar_view_set_bottom_bar_style (toolbar_view, ADW_TOOLBAR_RAISED_BORDER);
 

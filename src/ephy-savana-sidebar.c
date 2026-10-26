@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "config.h"
-#include "ephy-savanna-sidebar.h"
+#include "ephy-savana-sidebar.h"
 
 #include <glib/gi18n.h>
 
@@ -15,7 +15,7 @@
 #include "synced-tabs-dialog.h"
 
 #define READING_TAG "Reading List"
-#define GROUP_KEY "savanna-tab-group"
+#define GROUP_KEY "savana-tab-group"
 
 typedef struct {
   EphyWindow *window;
@@ -30,16 +30,21 @@ typedef struct {
 static char *
 groups_path (void)
 {
-  return g_build_filename (ephy_profile_dir (), "savanna-tab-groups.ini", NULL);
+  return g_build_filename (ephy_profile_dir (), "savana-tab-groups.ini", NULL);
 }
+
+static void groups_write (GKeyFile *file);
 
 static GKeyFile *
 groups_load (void)
 {
   GKeyFile *file = g_key_file_new ();
   g_autofree char *path = groups_path ();
+  g_autofree char *legacy_path = g_build_filename (ephy_profile_dir (), "savanna-tab-groups.ini", NULL);
 
-  g_key_file_load_from_file (file, path, G_KEY_FILE_NONE, NULL);
+  if (!g_key_file_load_from_file (file, path, G_KEY_FILE_NONE, NULL) &&
+      g_key_file_load_from_file (file, legacy_path, G_KEY_FILE_NONE, NULL))
+    groups_write (file);
   return file;
 }
 
@@ -75,7 +80,7 @@ save_window_group (EphyWindow *window)
   g_autoptr (GPtrArray) urls = g_ptr_array_new_with_free_func (g_free);
 
   if (!id || gtk_widget_in_destruction (GTK_WIDGET (window)) ||
-      g_object_get_data (G_OBJECT (window), "savanna-loading-group") || !can_save_groups ())
+      g_object_get_data (G_OBJECT (window), "savana-loading-group") || !can_save_groups ())
     return;
   file = groups_load ();
   if (!g_key_file_has_group (file, id))
@@ -93,7 +98,7 @@ save_window_group (EphyWindow *window)
 }
 
 char *
-ephy_savanna_tab_group_save (EphyWindow *window,
+ephy_savana_tab_group_save (EphyWindow *window,
                             const char *name)
 {
   g_autoptr (GKeyFile) file = NULL;
@@ -112,7 +117,7 @@ ephy_savanna_tab_group_save (EphyWindow *window,
 }
 
 void
-ephy_savanna_tab_group_remove (const char *id)
+ephy_savana_tab_group_remove (const char *id)
 {
   g_autoptr (GKeyFile) file = groups_load ();
 
@@ -125,7 +130,7 @@ ephy_savanna_tab_group_remove (const char *id)
 }
 
 void
-ephy_savanna_tab_group_open (EphyWindow *window,
+ephy_savana_tab_group_open (EphyWindow *window,
                             const char *id)
 {
   EphyShell *shell = ephy_shell_get_default ();
@@ -146,7 +151,7 @@ ephy_savanna_tab_group_open (EphyWindow *window,
   urls = g_key_file_get_string_list (file, id, "urls", NULL, NULL);
   target = ephy_window_new ();
   g_object_set_data_full (G_OBJECT (target), GROUP_KEY, g_strdup (id), g_free);
-  g_object_set_data (G_OBJECT (target), "savanna-loading-group", GINT_TO_POINTER (TRUE));
+  g_object_set_data (G_OBJECT (target), "savana-loading-group", GINT_TO_POINTER (TRUE));
   for (guint i = 0; urls && urls[i]; i++) {
     EphyEmbed *embed = ephy_shell_new_tab (shell, target, NULL, EPHY_NEW_TAB_APPEND_LAST);
     ephy_web_view_load_url (ephy_embed_get_web_view (embed), urls[i]);
@@ -155,7 +160,7 @@ ephy_savanna_tab_group_open (EphyWindow *window,
     EphyEmbed *embed = ephy_shell_new_tab (shell, target, NULL, EPHY_NEW_TAB_JUMP);
     ephy_web_view_load_url (ephy_embed_get_web_view (embed), "ephy-about:overview");
   }
-  g_object_set_data (G_OBJECT (target), "savanna-loading-group", NULL);
+  g_object_set_data (G_OBJECT (target), "savana-loading-group", NULL);
   gtk_window_present (GTK_WINDOW (target));
 }
 
@@ -168,7 +173,7 @@ sidebar_button (const char *icon,
   GtkWidget *label = gtk_label_new (title);
 
   gtk_widget_add_css_class (button, "flat");
-  gtk_widget_add_css_class (button, "savanna-sidebar-item");
+  gtk_widget_add_css_class (button, "savana-sidebar-item");
   gtk_label_set_xalign (GTK_LABEL (label), 0);
   gtk_label_set_ellipsize (GTK_LABEL (label), PANGO_ELLIPSIZE_END);
   gtk_widget_set_hexpand (label, TRUE);
@@ -194,7 +199,7 @@ group_dialog_response (AdwAlertDialog *dialog,
                        const char *response,
                        GtkWidget *root)
 {
-  Sidebar *sidebar = g_object_get_data (G_OBJECT (root), "savanna-sidebar");
+  Sidebar *sidebar = g_object_get_data (G_OBJECT (root), "savana-sidebar");
   GtkWidget *entry = adw_alert_dialog_get_extra_child (dialog);
   const char *id = g_object_get_data (G_OBJECT (dialog), "group-id");
   g_autofree char *name = g_strdup (gtk_editable_get_text (GTK_EDITABLE (entry)));
@@ -209,7 +214,7 @@ group_dialog_response (AdwAlertDialog *dialog,
     g_key_file_set_string (file, id, "name", name);
     groups_write (file);
   } else {
-    g_autofree char *new_id = ephy_savanna_tab_group_save (sidebar->window, name);
+    g_autofree char *new_id = ephy_savana_tab_group_save (sidebar->window, name);
   }
 }
 
@@ -251,7 +256,7 @@ static void
 group_open_clicked (GtkButton *button,
                     Sidebar *sidebar)
 {
-  ephy_savanna_tab_group_open (sidebar->window, g_object_get_data (G_OBJECT (button), "group-id"));
+  ephy_savana_tab_group_open (sidebar->window, g_object_get_data (G_OBJECT (button), "group-id"));
 }
 
 static void
@@ -260,7 +265,7 @@ group_delete_response (AdwAlertDialog *dialog,
                        gpointer user_data)
 {
   if (g_strcmp0 (response, "delete") == 0)
-    ephy_savanna_tab_group_remove (g_object_get_data (G_OBJECT (dialog), "group-id"));
+    ephy_savana_tab_group_remove (g_object_get_data (G_OBJECT (dialog), "group-id"));
 }
 
 static void
@@ -288,7 +293,7 @@ refresh_groups (Sidebar *sidebar)
   for (guint i = 0; ids[i]; i++) {
     g_autofree char *name = g_key_file_get_string (file, ids[i], "name", NULL);
     GtkWidget *row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
-    GtkWidget *button = sidebar_button ("savanna-tabs-symbolic", name ? name : _("Tab Group"));
+    GtkWidget *button = sidebar_button ("savana-tabs-symbolic", name ? name : _("Tab Group"));
     GtkWidget *menu = gtk_menu_button_new ();
     GtkWidget *popover = gtk_popover_new ();
     GtkWidget *actions = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
@@ -332,7 +337,7 @@ page_uri_changed (EphyWebView *view,
                   GParamSpec *pspec,
                   GtkWidget *root)
 {
-  Sidebar *sidebar = g_object_get_data (G_OBJECT (root), "savanna-sidebar");
+  Sidebar *sidebar = g_object_get_data (G_OBJECT (root), "savana-sidebar");
 
   if (gtk_widget_get_root (GTK_WIDGET (view)) != GTK_ROOT (sidebar->window))
     return;
@@ -344,7 +349,7 @@ pages_changed (AdwTabView *view,
                GParamSpec *pspec,
                GtkWidget *root)
 {
-  Sidebar *sidebar = g_object_get_data (G_OBJECT (root), "savanna-sidebar");
+  Sidebar *sidebar = g_object_get_data (G_OBJECT (root), "savana-sidebar");
   int count = adw_tab_view_get_n_pages (view);
   g_autofree char *label = g_strdup_printf (ngettext ("Personal — %d tab", "Personal — %d tabs", count), count);
 
@@ -413,7 +418,7 @@ static void
 save_reading_clicked (GtkButton *button,
                       GtkWidget *root)
 {
-  Sidebar *sidebar = g_object_get_data (G_OBJECT (root), "savanna-sidebar");
+  Sidebar *sidebar = g_object_get_data (G_OBJECT (root), "savana-sidebar");
   EphyEmbed *embed = ephy_embed_container_get_active_child (EPHY_EMBED_CONTAINER (sidebar->window));
   EphyBookmarksManager *manager = ephy_shell_get_bookmarks_manager (ephy_shell_get_default ());
   EphyWebView *view;
@@ -514,17 +519,17 @@ collection_clicked (GtkButton *button,
     GtkWidget *status = adw_status_page_new ();
     adw_status_page_set_icon_name (ADW_STATUS_PAGE (status), shared ? "send-to-symbolic" : "user-bookmarks-symbolic");
     adw_status_page_set_title (ADW_STATUS_PAGE (status), shared ? _("No Shared Links") : _("Nothing Saved Yet"));
-    adw_status_page_set_description (ADW_STATUS_PAGE (status), shared ? _("Receiving links from other devices is not supported yet. No shared content is available.") : reading ? _("Save a page to read it later. Saved pages remain here after restarting Savanna.") : _("Your most recently saved bookmarks will appear here."));
+    adw_status_page_set_description (ADW_STATUS_PAGE (status), shared ? _("Receiving links from other devices is not supported yet. No shared content is available.") : reading ? _("Save a page to read it later. Saved pages remain here after restarting Savana.") : _("Your most recently saved bookmarks will appear here."));
     gtk_box_append (GTK_BOX (box), status);
   }
   adw_dialog_present (dialog, GTK_WIDGET (sidebar->window));
 }
 
 void
-ephy_savanna_sidebar_show_bookmarks (EphyWindow *window,
+ephy_savana_sidebar_show_bookmarks (EphyWindow *window,
                                      gboolean    show)
 {
-  GtkStack *stack = g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack");
+  GtkStack *stack = g_object_get_data (G_OBJECT (window), "savana-sidebar-stack");
 
   if (!stack)
     return;
@@ -541,7 +546,7 @@ sidebar_free (gpointer data)
 }
 
 GtkWidget *
-ephy_savanna_sidebar_new (EphyWindow *window,
+ephy_savana_sidebar_new (EphyWindow *window,
                           GtkWidget  *bookmarks_view)
 {
   Sidebar *sidebar = g_new0 (Sidebar, 1);
@@ -552,13 +557,13 @@ ephy_savanna_sidebar_new (EphyWindow *window,
   GtkWidget *create = sidebar_button ("list-add-symbolic", _("New Tab Group"));
   GtkWidget *devices = sidebar_button ("phone-symbolic", _("iPhone & Android"));
   GtkWidget *sync = sidebar_button ("view-refresh-symbolic", _("Connect Devices…"));
-  GtkWidget *bookmarks = sidebar_button ("savanna-bookmarks-symbolic", _("Bookmarks"));
+  GtkWidget *bookmarks = sidebar_button ("savana-bookmarks-symbolic", _("Bookmarks"));
   GtkWidget *history = sidebar_button ("document-open-recent-symbolic", _("History"));
   AdwTabView *view = ephy_tab_view_get_tab_view (ephy_window_get_tab_view (window));
   g_autofree char *path = groups_path ();
   g_autoptr (GFile) file = g_file_new_for_path (path);
   const char *titles[] = { _("Recently Saved"), _("Reading List"), _("Shared with You") };
-  const char *icons[] = { "savanna-recent-symbolic", "savanna-reading-list-symbolic", "send-to-symbolic" };
+  const char *icons[] = { "savana-recent-symbolic", "savana-reading-list-symbolic", "send-to-symbolic" };
   const char *kinds[] = { "recent", "reading", "shared" };
 
   sidebar->window = window;
@@ -567,10 +572,10 @@ ephy_savanna_sidebar_new (EphyWindow *window,
   sidebar->root = stack;
   sidebar->groups = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   sidebar->profile = gtk_widget_get_last_child (gtk_button_get_child (GTK_BUTTON (profile)));
-  g_object_set_data_full (G_OBJECT (stack), "savanna-sidebar", sidebar, sidebar_free);
-  g_object_set_data (G_OBJECT (scroll), "savanna-sidebar", sidebar);
-  g_object_set_data (G_OBJECT (window), "savanna-sidebar-stack", stack);
-  gtk_widget_add_css_class (scroll, "savanna-sidebar");
+  g_object_set_data_full (G_OBJECT (stack), "savana-sidebar", sidebar, sidebar_free);
+  g_object_set_data (G_OBJECT (scroll), "savana-sidebar", sidebar);
+  g_object_set_data (G_OBJECT (window), "savana-sidebar-stack", stack);
+  gtk_widget_add_css_class (scroll, "savana-sidebar");
   gtk_widget_set_margin_bottom (scroll, 64);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
   gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (scroll), box);

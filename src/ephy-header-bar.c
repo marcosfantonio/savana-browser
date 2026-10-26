@@ -236,8 +236,8 @@ static void
 ephy_header_bar_init (EphyHeaderBar *header_bar)
 {
   gtk_widget_init_template (GTK_WIDGET (header_bar));
-  gtk_widget_add_css_class (header_bar->header_bar, "savanna-header-bar");
-  gtk_widget_add_css_class (header_bar->page_menu_button, "savanna-menu");
+  gtk_widget_add_css_class (header_bar->header_bar, "savana-header-bar");
+  gtk_widget_add_css_class (header_bar->page_menu_button, "savana-menu");
   ephy_page_menu_button_set_sidebar_mode (EPHY_PAGE_MENU_BUTTON (header_bar->page_menu_button));
 }
 

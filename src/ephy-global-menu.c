@@ -47,7 +47,7 @@ ephy_global_menu_setup (GtkApplication *application)
     { NULL, N_("Close _Other Tabs"), "win.global-tab-close-others" },
     { N_("_Help"), N_("_Help"), "app.help" },
     { NULL, N_("_Keyboard Shortcuts"), "app.shortcuts" },
-    { NULL, N_("_About Savanna"), "app.about" },
+    { NULL, N_("_About Savana"), "app.about" },
   };
   g_autoptr (GMenu) menubar = g_menu_new ();
   g_autoptr (GMenu) menu = NULL;

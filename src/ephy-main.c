@@ -37,6 +37,7 @@
 #include "ephy-debug.h"
 #include "ephy-embed-utils.h"
 #include "ephy-file-helpers.h"
+#include "ephy-memory-guard.h"
 #include "ephy-profile-utils.h"
 #include "ephy-session.h"
 #include "ephy-settings.h"
@@ -68,16 +69,18 @@ configure_nvidia_workaround (void)
   if (!g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND))
     return;
 
-  /* Apply only when the user opts in. Keep GTK/WebKit page acceleration and
-   * non-AV1 video decoders enabled while selecting the tested renderer/sinks. */
+  /* Keep page acceleration enabled while selecting the tested renderer/sinks
+   * and avoiding the decoders known to fail on the affected NVIDIA stack. */
   g_setenv ("__NV_DISABLE_EXPLICIT_SYNC", "1", FALSE);
   g_setenv ("WEBKIT_USE_SKIA_FOR_COMPOSITION", "0", FALSE);
   g_setenv ("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1", FALSE);
   g_setenv ("WEBKIT_GST_DISABLE_GL_SINK", "1", FALSE);
-  /* AV1 decoder selection was also unstable on this stack. Leave other
-   * hardware/software decoders (H.264, VP9, etc.) at their normal ranks. */
+  /* ImageDecoderGStreamer can select nvh264dec for an MP4 image preview, fail
+   * to instantiate it, then dereference NULL in configureVideoDecoderForHarnessing
+   * (WebKitGTK 2.54.2). Allow the software H.264 decoder to handle that path.
+   * AV1 decoder selection was also unstable on this stack. */
   g_setenv ("GST_PLUGIN_FEATURE_RANK",
-            "avdec_av1:NONE,av1dec:NONE,dav1ddec:NONE,nvav1dec:NONE",
+            "avdec_av1:NONE,av1dec:NONE,dav1ddec:NONE,nvav1dec:NONE,nvh264dec:NONE",
             FALSE);
 
   g_debug ("Enabled user-requested NVIDIA graphics/video workaround");
@@ -373,6 +376,7 @@ main (int   argc,
   }
 
   configure_nvidia_workaround ();
+  ephy_memory_guard_configure ();
 
   if (g_settings_get_boolean (EPHY_SETTINGS_MAIN, EPHY_PREFS_START_IN_INCOGNITO_MODE) && !application_mode && !open_in_new_window) {
     incognito_mode = TRUE;

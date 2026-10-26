@@ -4,13 +4,13 @@
 <node>
 
   <!--
-      com.savanna.Browser.WebAppProvider:
+      com.savana.Browser.WebAppProvider:
       @short_description: Webapp provider interface
 
       The interface used for handling Epiphany Webapps in GNOME Software, or other
       clients (version 1).
   -->
-  <interface name="com.savanna.Browser.WebAppProvider">
+  <interface name="com.savana.Browser.WebAppProvider">
     <!--
         GetInstalledApps:
         @desktop_file_ids: An array of .desktop file names, one for each
@@ -46,8 +46,8 @@
         be used, and the name given to that method should match the @name given here.
 
         If the arguments passed are invalid this method returns the error
-         `com.savanna.Browser.WebAppProvider.Error.InvalidArgs`, and otherwise
-         `com.savanna.Browser.WebAppProvider.Error.Failed`.
+         `com.savana.Browser.WebAppProvider.Error.InvalidArgs`, and otherwise
+         `com.savana.Browser.WebAppProvider.Error.Failed`.
     -->
     <method name="Install">
       <arg type="s" name="url" direction="in" />
@@ -65,10 +65,10 @@
         not a full path, and it's the same one returned by the
         GetInstalledWebApps() method.
 
-        The error `com.savanna.Browser.WebAppProvider.Error.NotInstalled` will be
+        The error `com.savana.Browser.WebAppProvider.Error.NotInstalled` will be
         returned if the specified web app is not installed. The other possible
-        error values are `com.savanna.Browser.WebAppProvider.Error.InvalidArgs`
-        and `com.savanna.Browser.WebAppProvider.Error.Failed`.
+        error values are `com.savana.Browser.WebAppProvider.Error.InvalidArgs`
+        and `com.savana.Browser.WebAppProvider.Error.Failed`.
     -->
     <method name="Uninstall">
       <arg type="s" name="desktop_file_id" direction="in" />

@@ -31,7 +31,7 @@
 #include "ephy-debug.h"
 #include "ephy-embed-container.h"
 #include "ephy-link.h"
-#include "ephy-savanna-sidebar.h"
+#include "ephy-savana-sidebar.h"
 #include "ephy-shell.h"
 
 struct _EphyBookmarksDialog {
@@ -1112,7 +1112,7 @@ on_close_button_clicked (GtkButton *button,
 
   ephy_bookmarks_dialog_set_is_editing (self, FALSE);
   ephy_bookmarks_dialog_clear_search (self);
-  ephy_savanna_sidebar_show_bookmarks (window, FALSE);
+  ephy_savana_sidebar_show_bookmarks (window, FALSE);
 }
 
 static void

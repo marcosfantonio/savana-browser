@@ -17,7 +17,7 @@
 #include "ephy-history-service.h"
 #include "ephy-fullscreen-box.h"
 #include "ephy-global-menu.h"
-#include "ephy-savanna-sidebar.h"
+#include "ephy-savana-sidebar.h"
 #include "ephy-location-entry.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
@@ -215,8 +215,8 @@ assert_bookmarks_chrome (GtkWidget *widget)
   g_assert_false (GTK_IS_WINDOW_CONTROLS (widget));
   g_assert_false (gtk_widget_has_css_class (widget, "title-1"));
   if (GTK_IS_LIST_BOX (widget) || GTK_IS_SCROLLED_WINDOW (widget) ||
-      gtk_widget_has_css_class (widget, "savanna-bookmarks") ||
-      gtk_widget_has_css_class (widget, "savanna-bookmark-row")) {
+      gtk_widget_has_css_class (widget, "savana-bookmarks") ||
+      gtk_widget_has_css_class (widget, "savana-bookmark-row")) {
     g_autoptr (GskRenderNode) background = background_node (widget);
 
     g_assert_null (background);
@@ -285,7 +285,7 @@ assert_chrome_transparency (GtkWidget *header,
     g_assert_cmpint (gsk_render_node_get_node_type (sidebar_background), ==, GSK_COLOR_NODE);
     g_assert_true (gdk_rgba_equal (gsk_color_node_get_color (node), gsk_color_node_get_color (sidebar_background)));
     g_assert_true (GTK_IS_OVERLAY (sidebar));
-    g_assert_true (gtk_overlay_get_child (GTK_OVERLAY (sidebar)) == g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack"));
+    g_assert_true (gtk_overlay_get_child (GTK_OVERLAY (sidebar)) == g_object_get_data (G_OBJECT (window), "savana-sidebar-stack"));
     g_assert_cmpint (gtk_widget_get_valign (tools), ==, GTK_ALIGN_END);
     g_assert_true (GTK_IS_BUTTON (extensions));
     g_assert_cmpstr (gtk_button_get_icon_name (GTK_BUTTON (extensions)), ==, "application-x-addon-symbolic");
@@ -326,13 +326,13 @@ page_loaded_cb (WebKitWebView *view,
   const char *script =
     "(() => {"
     "const links = [...document.querySelectorAll('.favorite')];"
-    "if (!links.some(a => a.href === 'https://savanna.test/' && a.textContent.includes('<Real Bookmark>'))) return 'bookmarks';"
+    "if (!links.some(a => a.href === 'https://savana.test/' && a.textContent.includes('<Real Bookmark>'))) return 'bookmarks';"
     "if (document.querySelector('.favorites script')) return 'escaping';"
     "const icon = document.querySelector('.favorite .favorite-icon');"
     "if (!icon || !icon.complete || !icon.naturalWidth) return 'favorite icon';"
     "if (document.querySelector('.user-favorite').textContent.trim()) return 'letter tile';"
     "if (document.documentElement.dataset.theme !== 'dark') return 'theme';"
-    "if (!getComputedStyle(document.body).backgroundImage.includes('savanna-wallpaper-dark.svg')) return 'dark wallpaper';"
+    "if (!getComputedStyle(document.body).backgroundImage.includes('savana-wallpaper-dark.svg')) return 'dark wallpaper';"
     "if (!document.querySelector('.start-logo').src.endsWith('logo.svg')) return 'logo';"
     "if (document.querySelector('.suggestion-card')) return 'fake suggestions';"
     "if (document.querySelector('.overview-item[href]')) return 'fake history';"
@@ -377,7 +377,7 @@ populated_page_loaded_cb (WebKitWebView *view,
     "(() => {"
     "if (!document.querySelector('.user-suggestion[href=\"http://127.0.0.1:9/visited\"]')) return 'suggestions';"
     "if (!document.querySelector('.overview-item[href=\"http://127.0.0.1:9/visited\"]')) return 'history';"
-    "if (document.querySelectorAll('.favorite[href=\"https://savanna.test/\"]').length !== 1) return 'bookmarks';"
+    "if (document.querySelectorAll('.favorite[href=\"https://savana.test/\"]').length !== 1) return 'bookmarks';"
     "return 'PASS';"
     "})()";
 
@@ -613,7 +613,7 @@ test_interface (void)
   AdwOverlaySplitView *split;
   AdwTabView *tabs;
   EphyBookmarksManager *manager = ephy_shell_get_bookmarks_manager (shell);
-  g_autoptr (EphyBookmark) bookmark = ephy_bookmark_new ("https://savanna.test/", "<Real Bookmark>", NULL, "savanna-test");
+  g_autoptr (EphyBookmark) bookmark = ephy_bookmark_new ("https://savana.test/", "<Real Bookmark>", NULL, "savana-test");
   g_autoptr (GMainLoop) loop = g_main_loop_new (NULL, FALSE);
   EphyDownloadsManager *downloads;
   g_autoptr (EphyDownload) download = NULL;
@@ -623,6 +623,7 @@ test_interface (void)
   GtkWidget *appearance;
   GtkWidget *general;
   GtkWidget *nvidia_workaround_row;
+  GtkWidget *memory_guard_row;
   AdwComboRow *theme_row;
   GdkRGBA header_color;
   g_autoptr (EphyHistoryPageVisit) visit = NULL;
@@ -638,7 +639,7 @@ test_interface (void)
   int home_url_height;
   int page_url_height;
   GdkRGBA palette_color;
-  g_autofree char *download_path = g_build_filename (g_get_tmp_dir (), "savanna-completed-test", NULL);
+  g_autofree char *download_path = g_build_filename (g_get_tmp_dir (), "savana-completed-test", NULL);
 
   g_settings_set_uint (EPHY_SETTINGS_MAIN, "browser-color-scheme", 1);
   g_assert_false (adw_style_manager_get_dark (adw_style_manager_get_default ()));
@@ -658,11 +659,20 @@ test_interface (void)
                                                                     EPHY_TYPE_PREFS_GENERAL_PAGE,
                                                                     "nvidia_workaround_row"));
   g_assert_nonnull (nvidia_workaround_row);
-  g_assert_false (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND));
-  adw_switch_row_set_active (ADW_SWITCH_ROW (nvidia_workaround_row), TRUE);
   g_assert_true (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND));
   adw_switch_row_set_active (ADW_SWITCH_ROW (nvidia_workaround_row), FALSE);
   g_assert_false (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND));
+  adw_switch_row_set_active (ADW_SWITCH_ROW (nvidia_workaround_row), TRUE);
+  g_assert_true (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_NVIDIA_WORKAROUND));
+  memory_guard_row = GTK_WIDGET (gtk_widget_get_template_child (general,
+                                                                EPHY_TYPE_PREFS_GENERAL_PAGE,
+                                                                "memory_guard_row"));
+  g_assert_nonnull (memory_guard_row);
+  g_assert_true (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_MEMORY_GUARD));
+  adw_switch_row_set_active (ADW_SWITCH_ROW (memory_guard_row), FALSE);
+  g_assert_false (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_MEMORY_GUARD));
+  adw_switch_row_set_active (ADW_SWITCH_ROW (memory_guard_row), TRUE);
+  g_assert_true (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_MEMORY_GUARD));
   g_object_unref (general);
 
   ephy_bookmarks_manager_add_bookmark (manager, bookmark);
@@ -674,7 +684,7 @@ test_interface (void)
   g_assert_true (g_action_group_has_action (G_ACTION_GROUP (window), "global-toolbar-reload"));
   dialog = gtk_window_new ();
   gtk_window_set_application (GTK_WINDOW (dialog), GTK_APPLICATION (shell));
-  g_assert_true (gtk_widget_has_css_class (dialog, "savanna-surface"));
+  g_assert_true (gtk_widget_has_css_class (dialog, "savana-surface"));
   g_settings_set_uint (EPHY_SETTINGS_MAIN, "browser-color-scheme", 1);
   gtk_widget_get_color (dialog, &palette_color);
   g_assert_cmpfloat (palette_color.red, <, 0.4);
@@ -717,9 +727,9 @@ test_interface (void)
   g_action_group_activate_action (G_ACTION_GROUP (window), "bookmarks", NULL);
   g_assert_true (adw_overlay_split_view_get_show_sidebar (split));
   g_assert_cmpstr (gtk_stack_get_visible_child_name (GTK_STACK (
-    g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack"))), ==, "bookmarks");
+    g_object_get_data (G_OBJECT (window), "savana-sidebar-stack"))), ==, "bookmarks");
   {
-    GtkStack *stack = g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack");
+    GtkStack *stack = g_object_get_data (G_OBJECT (window), "savana-sidebar-stack");
     GtkWidget *pane = gtk_stack_get_visible_child (stack);
     GtkWidget *back = find_sidebar_button (pane, "Back");
     GtkWidget *done = GTK_WIDGET (gtk_widget_get_template_child (pane, EPHY_TYPE_BOOKMARKS_DIALOG, "done_button"));
@@ -747,7 +757,7 @@ test_interface (void)
   g_signal_connect (ephy_embed_get_web_view (embed), "load-changed", G_CALLBACK (page_loaded_cb), loop);
   ephy_web_view_load_url (ephy_embed_get_web_view (embed), "ephy-about:overview");
   g_main_loop_run (loop);
-  g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savanna-compact"));
+  g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savana-compact"));
   assert_chrome_transparency (header, FALSE);
 #if HAVE_DBUSMENU
   assert_dbusmenu (GTK_APPLICATION_WINDOW (window), split);
@@ -766,13 +776,13 @@ test_interface (void)
   webkit_web_view_load_html (WEBKIT_WEB_VIEW (ephy_embed_get_web_view (embed)), "<title>Compact page</title>", "https://compact.test/");
   if (g_strcmp0 (ephy_web_view_get_address (ephy_embed_get_web_view (embed)), "https://compact.test/") != 0)
     g_main_loop_run (loop);
-  g_assert_true (gtk_widget_has_css_class (GTK_WIDGET (window), "savanna-compact"));
+  g_assert_true (gtk_widget_has_css_class (GTK_WIDGET (window), "savana-compact"));
   assert_chrome_transparency (header, TRUE);
   gtk_widget_measure (header, GTK_ORIENTATION_VERTICAL, -1, &page_height, NULL, NULL, NULL);
   gtk_widget_measure (share_button, GTK_ORIENTATION_VERTICAL, -1, &page_control_height, NULL, NULL, NULL);
   gtk_widget_measure (url_button, GTK_ORIENTATION_VERTICAL, -1, &page_url_height, NULL, NULL, NULL);
   {
-    GtkWidget *tab_bar = find_widget_with_class (GTK_WIDGET (window), "savanna-tab-bar");
+    GtkWidget *tab_bar = find_widget_with_class (GTK_WIDGET (window), "savana-tab-bar");
     GtkBorder padding;
 
     g_assert_nonnull (tab_bar);
@@ -786,9 +796,9 @@ test_interface (void)
   g_assert_cmpint (page_control_height, ==, home_control_height);
   g_assert_cmpint (page_url_height, ==, home_url_height);
   adw_tab_view_set_selected_page (tabs, adw_tab_view_get_nth_page (tabs, 1));
-  g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savanna-compact"));
+  g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savana-compact"));
   adw_tab_view_set_selected_page (tabs, adw_tab_view_get_nth_page (tabs, 0));
-  g_assert_true (gtk_widget_has_css_class (GTK_WIDGET (window), "savanna-compact"));
+  g_assert_true (gtk_widget_has_css_class (GTK_WIDGET (window), "savana-compact"));
   webkit_web_view_stop_loading (WEBKIT_WEB_VIEW (ephy_embed_get_web_view (embed)));
 
   {
@@ -887,7 +897,7 @@ test_interface (void)
   g_main_loop_run (loop);
   {
     GtkWidget *sidebar = adw_overlay_split_view_get_sidebar (split);
-    GtkStack *stack = g_object_get_data (G_OBJECT (window), "savanna-sidebar-stack");
+    GtkStack *stack = g_object_get_data (G_OBJECT (window), "savana-sidebar-stack");
     GtkWidget *pane;
     GtkWidget *toolbar;
     GtkWidget *toast;
@@ -926,10 +936,10 @@ test_interface (void)
     gtk_window_destroy (GTK_WINDOW (dialog));
     g_application_release (G_APPLICATION (shell));
   }
-  g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savanna-compact"));
+  g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savana-compact"));
   {
-    g_autofree char *id = ephy_savanna_tab_group_save (window, "Research");
-    g_autofree char *path = g_build_filename (ephy_profile_dir (), "savanna-tab-groups.ini", NULL);
+    g_autofree char *id = ephy_savana_tab_group_save (window, "Research");
+    g_autofree char *path = g_build_filename (ephy_profile_dir (), "savana-tab-groups.ini", NULL);
     g_autoptr (GKeyFile) groups = g_key_file_new ();
     g_auto (GStrv) urls = NULL;
     gsize length;
@@ -943,16 +953,16 @@ test_interface (void)
     g_assert_true (g_key_file_load_from_file (groups, path, G_KEY_FILE_NONE, NULL));
     urls = g_key_file_get_string_list (groups, id, "urls", &length, NULL);
     g_assert_cmpuint (length, ==, 2);
-    ephy_savanna_tab_group_open (window, id);
+    ephy_savana_tab_group_open (window, id);
     g_assert_cmpuint (ephy_shell_get_n_windows (shell), ==, windows);
     gtk_window_destroy (GTK_WINDOW (window));
     g_assert_true (g_key_file_load_from_file (groups, path, G_KEY_FILE_NONE, NULL));
     g_clear_pointer (&urls, g_strfreev);
     urls = g_key_file_get_string_list (groups, id, "urls", &length, NULL);
     g_assert_cmpuint (length, ==, 2);
-    ephy_savanna_tab_group_open (NULL, id);
+    ephy_savana_tab_group_open (NULL, id);
     for (GList *l = gtk_application_get_windows (GTK_APPLICATION (shell)); l; l = l->next)
-      if (EPHY_IS_WINDOW (l->data) && g_strcmp0 (g_object_get_data (l->data, "savanna-tab-group"), id) == 0)
+      if (EPHY_IS_WINDOW (l->data) && g_strcmp0 (g_object_get_data (l->data, "savana-tab-group"), id) == 0)
         reopened = l->data;
     g_assert_nonnull (reopened);
 #if HAVE_DBUSMENU
@@ -960,7 +970,7 @@ test_interface (void)
     assert_dbusmenu (GTK_APPLICATION_WINDOW (reopened), ADW_OVERLAY_SPLIT_VIEW (gtk_widget_get_template_child (GTK_WIDGET (reopened), EPHY_TYPE_WINDOW, "navigation_split_view")));
 #endif
     g_assert_cmpint (adw_tab_view_get_n_pages (ephy_tab_view_get_tab_view (ephy_window_get_tab_view (reopened))), ==, 2);
-    ephy_savanna_tab_group_remove (id);
+    ephy_savana_tab_group_remove (id);
     g_assert_true (g_key_file_load_from_file (groups, path, G_KEY_FILE_NONE, NULL));
     g_assert_false (g_key_file_has_group (groups, id));
     g_assert_cmpint (adw_tab_view_get_n_pages (ephy_tab_view_get_tab_view (ephy_window_get_tab_view (reopened))), ==, 2);
@@ -980,10 +990,10 @@ main (int argc, char **argv)
   g_assert_true (ephy_file_helpers_init (NULL, EPHY_FILE_HELPERS_TESTING_MODE | EPHY_FILE_HELPERS_ENSURE_EXISTS, NULL));
   _ephy_shell_create_instance (EPHY_EMBED_SHELL_MODE_TEST);
   g_assert_true (g_application_register (G_APPLICATION (ephy_shell_get_default ()), NULL, NULL));
-  g_test_add_func ("/savanna/interface", test_interface);
-  g_test_add_func ("/savanna/bookmark-preview", test_bookmark_preview);
-  g_test_add_func ("/savanna/favicon-tile", test_favicon_tile);
-  g_test_add_func ("/savanna/favicon-monochrome-tile", test_favicon_monochrome_tile);
+  g_test_add_func ("/savana/interface", test_interface);
+  g_test_add_func ("/savana/bookmark-preview", test_bookmark_preview);
+  g_test_add_func ("/savana/favicon-tile", test_favicon_tile);
+  g_test_add_func ("/savana/favicon-monochrome-tile", test_favicon_monochrome_tile);
   result = g_test_run ();
   g_object_unref (ephy_shell_get_default ());
   ephy_file_helpers_shutdown ();

@@ -82,8 +82,8 @@ struct _EphyShell {
   int num_windows_with_modified_forms;
 
   GtkStyleProvider *style_provider;
-  GtkStyleProvider *savanna_style_provider;
-  GtkStyleProvider *savanna_palette_provider;
+  GtkStyleProvider *savana_style_provider;
+  GtkStyleProvider *savana_palette_provider;
 
   GList *windows; /* unowned, used for assertion only */
 };
@@ -650,9 +650,9 @@ start_page_bookmarks_cb (EphyShell *shell)
       title = url;
     escaped_url = g_markup_escape_text (url, -1);
     escaped_title = g_markup_escape_text (title, -1);
-    if (!g_object_get_data (G_OBJECT (bookmark), "savanna-start-page-icon-connected")) {
+    if (!g_object_get_data (G_OBJECT (bookmark), "savana-start-page-icon-connected")) {
       g_signal_connect_object (bookmark, "notify::icon", G_CALLBACK (start_page_bookmarks_changed_cb), shell, G_CONNECT_SWAPPED);
-      g_object_set_data (G_OBJECT (bookmark), "savanna-start-page-icon-connected", GINT_TO_POINTER (TRUE));
+      g_object_set_data (G_OBJECT (bookmark), "savana-start-page-icon-connected", GINT_TO_POINTER (TRUE));
     }
     ephy_bookmark_start_loading_icon (bookmark);
     icon = ephy_bookmark_get_icon (bookmark);
@@ -678,17 +678,17 @@ apply_window_appearance (GtkApplication *application,
                           GtkWindow *window,
                           EphyShell *shell)
 {
-  gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-surface");
+  gtk_widget_add_css_class (GTK_WIDGET (window), "savana-surface");
   if (EPHY_IS_WINDOW (window))
     ephy_global_menu_attach (GTK_APPLICATION_WINDOW (window));
   if (adw_style_manager_get_dark (adw_style_manager_get_default ()))
-    gtk_widget_add_css_class (GTK_WIDGET (window), "savanna-dark");
+    gtk_widget_add_css_class (GTK_WIDGET (window), "savana-dark");
   else
-    gtk_widget_remove_css_class (GTK_WIDGET (window), "savanna-dark");
+    gtk_widget_remove_css_class (GTK_WIDGET (window), "savana-dark");
 }
 
 static void
-sync_savanna_palette (AdwStyleManager *manager,
+sync_savana_palette (AdwStyleManager *manager,
                        GParamSpec *pspec,
                        EphyShell *shell)
 {
@@ -722,7 +722,7 @@ sync_savanna_palette (AdwStyleManager *manager,
    * application only, without changing its fonts or native window controls. */
   for (guint i = 0; i < G_N_ELEMENTS (colors); i++)
     g_string_append_printf (css, "@define-color %s %s;\n", colors[i].name, dark ? colors[i].dark : colors[i].light);
-  g_string_append (css, ".savanna-surface {\n");
+  g_string_append (css, ".savana-surface {\n");
   for (guint i = 0; i < G_N_ELEMENTS (colors); i++) {
     g_autofree char *name = g_strdup (colors[i].name);
     g_strdelimit (name, "_", '-');
@@ -730,14 +730,14 @@ sync_savanna_palette (AdwStyleManager *manager,
   }
   g_string_append (css,
     "color: var(--window-fg-color); background-color: var(--window-bg-color); }\n"
-    ".savanna-surface .background { background: var(--window-bg-color); color: var(--window-fg-color); }\n"
-    ".savanna-surface headerbar { background: var(--headerbar-bg-color); color: var(--headerbar-fg-color); }\n"
-    ".savanna-surface popover > contents { background: var(--popover-bg-color); color: var(--popover-fg-color); }\n"
-    ".savanna-surface list, .savanna-surface listview, .savanna-surface .view { background: var(--view-bg-color); color: var(--view-fg-color); }\n"
-    ".savanna-surface list > row, .savanna-surface listview > row { background-color: transparent; color: inherit; }\n"
-    ".savanna-surface .boxed-list > row { background: var(--card-bg-color); color: var(--card-fg-color); }\n"
-    ".savanna-surface entry, .savanna-surface textview { background: var(--view-bg-color); color: var(--view-fg-color); }\n");
-  gtk_css_provider_load_from_string (GTK_CSS_PROVIDER (shell->savanna_palette_provider), css->str);
+    ".savana-surface .background { background: var(--window-bg-color); color: var(--window-fg-color); }\n"
+    ".savana-surface headerbar { background: var(--headerbar-bg-color); color: var(--headerbar-fg-color); }\n"
+    ".savana-surface popover > contents { background: var(--popover-bg-color); color: var(--popover-fg-color); }\n"
+    ".savana-surface list, .savana-surface listview, .savana-surface .view { background: var(--view-bg-color); color: var(--view-fg-color); }\n"
+    ".savana-surface list > row, .savana-surface listview > row { background-color: transparent; color: inherit; }\n"
+    ".savana-surface .boxed-list > row { background: var(--card-bg-color); color: var(--card-fg-color); }\n"
+    ".savana-surface entry, .savana-surface textview { background: var(--view-bg-color); color: var(--view-fg-color); }\n");
+  gtk_css_provider_load_from_string (GTK_CSS_PROVIDER (shell->savana_palette_provider), css->str);
   for (GList *l = gtk_application_get_windows (GTK_APPLICATION (shell)); l; l = l->next)
     apply_window_appearance (GTK_APPLICATION (shell), l->data, shell);
 }
@@ -816,22 +816,22 @@ ephy_shell_startup (GApplication *application)
                                               GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
   /* The user's GTK CSS has higher priority than application CSS. Override it
-   * only for Savanna's toolbar, without changing the user's global theme. */
-  shell->savanna_style_provider = GTK_STYLE_PROVIDER (gtk_css_provider_new ());
-  gtk_css_provider_load_from_resource (GTK_CSS_PROVIDER (shell->savanna_style_provider),
-                                       "/org/gnome/Epiphany/savanna.css");
+   * only for Savana's toolbar, without changing the user's global theme. */
+  shell->savana_style_provider = GTK_STYLE_PROVIDER (gtk_css_provider_new ());
+  gtk_css_provider_load_from_resource (GTK_CSS_PROVIDER (shell->savana_style_provider),
+                                       "/org/gnome/Epiphany/savana.css");
   gtk_style_context_add_provider_for_display (gdk_display_get_default (),
-                                              shell->savanna_style_provider,
+                                              shell->savana_style_provider,
                                               GTK_STYLE_PROVIDER_PRIORITY_USER + 2);
 
-  shell->savanna_palette_provider = GTK_STYLE_PROVIDER (gtk_css_provider_new ());
+  shell->savana_palette_provider = GTK_STYLE_PROVIDER (gtk_css_provider_new ());
   gtk_style_context_add_provider_for_display (gdk_display_get_default (),
-                                              shell->savanna_palette_provider,
+                                              shell->savana_palette_provider,
                                               GTK_STYLE_PROVIDER_PRIORITY_USER + 1);
   g_signal_connect_object (adw_style_manager_get_default (), "notify::dark",
-                           G_CALLBACK (sync_savanna_palette), shell, 0);
+                           G_CALLBACK (sync_savana_palette), shell, 0);
   g_signal_connect (shell, "window-added", G_CALLBACK (apply_window_appearance), shell);
-  sync_savanna_palette (adw_style_manager_get_default (), NULL, shell);
+  sync_savana_palette (adw_style_manager_get_default (), NULL, shell);
 
   /* We're not remoting; start our services */
 
@@ -1287,8 +1287,8 @@ ephy_shell_dispose (GObject *object)
   g_clear_slist (&shell->open_uris_idle_ids, remove_open_uris_idle_cb);
 
   g_clear_object (&shell->style_provider);
-  g_clear_object (&shell->savanna_style_provider);
-  g_clear_object (&shell->savanna_palette_provider);
+  g_clear_object (&shell->savana_style_provider);
+  g_clear_object (&shell->savana_palette_provider);
 
   G_OBJECT_CLASS (ephy_shell_parent_class)->dispose (object);
 }

@@ -208,7 +208,7 @@ GdkTexture *
 ephy_favicon_create_tile (GdkTexture *texture,
                           int         size)
 {
-  GQuark key = g_quark_from_static_string ("savanna-favicon-tiles");
+  GQuark key = g_quark_from_static_string ("savana-favicon-tiles");
   GHashTable *tiles = g_object_get_qdata (G_OBJECT (texture), key);
   GdkTexture *tile;
   GdkRGBA color;
