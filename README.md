@@ -31,10 +31,13 @@ project, including the GTK 4 portal backend, code-generation/documentation
 tools, and GStreamer plugins for media playback:
 
 ```sh
-sudo pacman -S --needed base-devel git meson ninja pkgconf \
-  gtk4 libadwaita webkitgtk-6.0 dbusmenu-glib wayland libx11 \
-  libportal libportal-gtk4 libpwquality glib2-devel itstool blueprint-compiler \
-  gst-plugins-good gst-plugin-pipewire \ meson \ libportal-gtk4
+sudo pacman -S --needed \
+  base-devel git meson ninja pkgconf \
+  gtk4 libadwaita webkitgtk-6.0 \
+  libdbusmenu-glib wayland libx11 \
+  libportal libportal-gtk4 libpwquality glib2-devel \
+  itstool blueprint-compiler \
+  gst-plugins-good gst-plugin-pipewire
 ```
 
 Clone, build, and install for your user (installation does not require `sudo`):
