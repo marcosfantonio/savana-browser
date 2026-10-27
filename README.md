@@ -34,7 +34,7 @@ tools, and GStreamer plugins for media playback:
 sudo pacman -S --needed base-devel git meson ninja pkgconf \
   gtk4 libadwaita webkitgtk-6.0 dbusmenu-glib wayland libx11 \
   libportal libportal-gtk4 libpwquality glib2-devel itstool blueprint-compiler \
-  gst-plugins-good gst-plugin-pipewire
+  gst-plugins-good gst-plugin-pipewire \ meson \ libportal-gtk4
 ```
 
 Clone, build, and install for your user (installation does not require `sudo`):
