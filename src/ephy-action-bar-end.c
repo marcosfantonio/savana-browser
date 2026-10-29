@@ -133,6 +133,8 @@ download_completed_cb (EphyDownloadsManager *manager,
                        EphyDownload         *download,
                        EphyActionBarEnd     *action_bar_end)
 {
+  g_clear_handle_id (&action_bar_end->downloads_button_attention_timeout_id, g_source_remove);
+  gtk_widget_remove_css_class (action_bar_end->downloads_icon, "accent");
   ephy_downloads_paintable_animate_done (EPHY_DOWNLOADS_PAINTABLE (action_bar_end->downloads_paintable));
   sync_downloads_visibility (manager, action_bar_end);
 }

@@ -40,6 +40,7 @@
 #include "ephy-title-box.h"
 #include "ephy-title-widget.h"
 #include "ephy-type-builtins.h"
+#include "ephy-window-controls.h"
 
 #define POPOVER_HIDE_DELAY 300
 
@@ -66,6 +67,8 @@ struct _EphyHeaderBar {
   GtkWidget *restore_button;
   GtkWidget *combined_stop_reload_button;
   GtkWidget *page_menu_popover;
+  GtkCssProvider *window_controls_provider;
+  GFileMonitor *window_controls_monitor;
 
   guint popover_hide_timeout_id;
 };
@@ -160,13 +163,50 @@ fullscreen_changed_cb (EphyHeaderBar *header_bar)
 }
 
 static void
+sync_window_controls_theme (EphyHeaderBar *header_bar)
+{
+  GdkDisplay *display = gtk_widget_get_display (GTK_WIDGET (header_bar));
+
+  if (header_bar->window_controls_provider) {
+    gtk_style_context_remove_provider_for_display (display, GTK_STYLE_PROVIDER (header_bar->window_controls_provider));
+    g_clear_object (&header_bar->window_controls_provider);
+  }
+  header_bar->window_controls_provider = ephy_window_controls_load_active_theme ();
+  if (header_bar->window_controls_provider)
+    gtk_style_context_add_provider_for_display (display,
+                                                GTK_STYLE_PROVIDER (header_bar->window_controls_provider),
+                                                GTK_STYLE_PROVIDER_PRIORITY_USER + 1);
+}
+
+static void
+window_controls_config_changed_cb (GFileMonitor      *monitor,
+                                   GFile             *file,
+                                   GFile             *other_file,
+                                   GFileMonitorEvent  event,
+                                   EphyHeaderBar     *header_bar)
+{
+  g_autofree char *name = g_file_get_basename (file);
+  g_autofree char *other_name = other_file ? g_file_get_basename (other_file) : NULL;
+
+  if (g_strcmp0 (name, "kwinrc") == 0 || g_strcmp0 (other_name, "kwinrc") == 0)
+    sync_window_controls_theme (header_bar);
+}
+
+static void
 ephy_header_bar_constructed (GObject *object)
 {
   EphyHeaderBar *header_bar = EPHY_HEADER_BAR (object);
   EphyEmbedShell *embed_shell = ephy_embed_shell_get_default ();
   GtkSizeGroup *downloads_size_group;
+  g_autoptr (GFile) config_directory = g_file_new_for_path (g_get_user_config_dir ());
 
   G_OBJECT_CLASS (ephy_header_bar_parent_class)->constructed (object);
+
+  sync_window_controls_theme (header_bar);
+  header_bar->window_controls_monitor = g_file_monitor_directory (config_directory, G_FILE_MONITOR_NONE, NULL, NULL);
+  if (header_bar->window_controls_monitor)
+    g_signal_connect_object (header_bar->window_controls_monitor, "changed",
+                             G_CALLBACK (window_controls_config_changed_cb), header_bar, 0);
 
   g_signal_connect_object (header_bar->window, "notify::chrome",
                            G_CALLBACK (sync_chromes_visibility), header_bar,
@@ -228,6 +268,13 @@ ephy_header_bar_dispose (GObject *object)
   EphyHeaderBar *header_bar = EPHY_HEADER_BAR (object);
 
   g_clear_handle_id (&header_bar->popover_hide_timeout_id, g_source_remove);
+
+  g_clear_object (&header_bar->window_controls_monitor);
+  if (header_bar->window_controls_provider) {
+    gtk_style_context_remove_provider_for_display (gtk_widget_get_display (GTK_WIDGET (header_bar)),
+                                                   GTK_STYLE_PROVIDER (header_bar->window_controls_provider));
+    g_clear_object (&header_bar->window_controls_provider);
+  }
 
   G_OBJECT_CLASS (ephy_header_bar_parent_class)->dispose (object);
 }

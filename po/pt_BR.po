@@ -55,6 +55,18 @@ msgstr ""
 "X-DL-State: Translating\n"
 "X-DL-Lang: pt_BR\n"
 
+#: src/ephy-tab-view.c
+msgid "Start Page"
+msgstr "Página Inicial"
+
+#: src/resources/gtk/prefs-appearance-page.blp
+msgid "Liquid Glass Toolbar"
+msgstr "Liquid Glass Toolbar"
+
+#: src/resources/gtk/prefs-appearance-page.blp
+msgid "Use the page’s top-edge color behind translucent browser controls"
+msgstr "Usar a cor do topo da página atrás dos controles translúcidos do navegador"
+
 #: data/org.gnome.Epiphany.desktop.in.in:2
 #: data/org.gnome.Epiphany.metainfo.xml.in.in:6 embed/ephy-about-handler.c:206
 #: embed/ephy-about-handler.c:238 src/ephy-main.c:104 src/ephy-main.c:268

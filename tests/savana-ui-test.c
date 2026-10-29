@@ -1,6 +1,7 @@
 #include "config.h"
 
 #include <gtk/gtk.h>
+#include <glib/gstdio.h>
 
 #include "ephy-bookmark.h"
 #include "ephy-bookmark-row.h"
@@ -24,6 +25,8 @@
 #include "ephy-session.h"
 #include "ephy-tab-view.h"
 #include "ephy-window.h"
+#include "ephy-window-controls.h"
+#include "ephy-toolbar-color.h"
 #include "prefs-appearance-page.h"
 #include "prefs-general-page.h"
 
@@ -697,6 +700,28 @@ test_interface (void)
   g_assert_cmpfloat (palette_color.red, >, 0.6);
   gtk_window_destroy (GTK_WINDOW (dialog));
   header = ephy_window_get_header_bar (window);
+  {
+    GtkWidget *toggle = find_widget_with_class (header, "savana-sidebar-toggle");
+    GtkBorder border;
+
+    g_assert_nonnull (toggle);
+    G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+    gtk_style_context_get_border (gtk_widget_get_style_context (toggle), &border);
+    G_GNUC_END_IGNORE_DEPRECATIONS
+    g_assert_cmpint (border.top, ==, 1);
+    g_assert_cmpint (border.bottom, ==, 1);
+    g_assert_cmpint (border.left, ==, 1);
+    g_assert_cmpint (border.right, ==, 1);
+  }
+  {
+    EphyLocationEntry *entry = EPHY_LOCATION_ENTRY (ephy_header_bar_get_title_widget (EPHY_HEADER_BAR (header)));
+    GtkWidget *stop = GTK_WIDGET (gtk_widget_get_template_child (GTK_WIDGET (entry), EPHY_TYPE_LOCATION_ENTRY, "combined_stop_reload_button"));
+
+    ephy_location_entry_start_change_combined_stop_reload_state (entry, TRUE);
+    g_assert_cmpstr (gtk_button_get_icon_name (GTK_BUTTON (stop)), ==, "savana-stop-symbolic");
+    ephy_location_entry_start_change_combined_stop_reload_state (entry, FALSE);
+    g_assert_cmpstr (gtk_button_get_icon_name (GTK_BUTTON (stop)), ==, "view-refresh-symbolic");
+  }
   gtk_widget_get_color (GTK_WIDGET (gtk_widget_get_template_child (header, EPHY_TYPE_HEADER_BAR, "header_bar")), &header_color);
   g_assert_cmpfloat (header_color.red, >, 0.6);
   embed = ephy_shell_new_tab_full (shell, NULL, NULL, window, NULL, EPHY_NEW_TAB_DONT_SHOW_WINDOW);
@@ -757,6 +782,13 @@ test_interface (void)
   g_signal_connect (ephy_embed_get_web_view (embed), "load-changed", G_CALLBACK (page_loaded_cb), loop);
   ephy_web_view_load_url (ephy_embed_get_web_view (embed), "ephy-about:overview");
   g_main_loop_run (loop);
+  {
+    AdwTabPage *page = adw_tab_view_get_page (tabs, GTK_WIDGET (embed));
+    g_autoptr (GIcon) star = g_themed_icon_new ("savana-start-page-symbolic");
+
+    g_assert_cmpstr (adw_tab_page_get_title (page), ==, "Start Page");
+    g_assert_true (g_icon_equal (adw_tab_page_get_icon (page), star));
+  }
   g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savana-compact"));
   assert_chrome_transparency (header, FALSE);
 #if HAVE_DBUSMENU
@@ -791,6 +823,8 @@ test_interface (void)
     G_GNUC_END_IGNORE_DEPRECATIONS
     g_assert_cmpint (padding.bottom, ==, 6);
     g_assert_true (adw_tab_bar_get_inverted (ADW_TAB_BAR (tab_bar)));
+    g_assert_false (adw_tab_bar_get_autohide (ADW_TAB_BAR (tab_bar)));
+    g_assert_true (adw_tab_bar_get_expand_tabs (ADW_TAB_BAR (tab_bar)));
   }
   g_assert_cmpint (page_height, <, home_height);
   g_assert_cmpint (page_control_height, ==, home_control_height);
@@ -854,6 +888,8 @@ test_interface (void)
   g_assert_true (gtk_widget_get_visible (revealer));
   downloads_icon = GTK_WIDGET (gtk_widget_get_template_child (GTK_WIDGET (end), EPHY_TYPE_ACTION_BAR_END, "downloads_icon"));
   g_assert_true (gtk_widget_has_css_class (downloads_icon, "downloads-complete"));
+  g_assert_false (gtk_widget_has_css_class (downloads_icon, "accent"));
+  g_assert_cmpint (gtk_image_get_pixel_size (GTK_IMAGE (downloads_icon)), ==, 18);
   ephy_download_mark_opened (download);
   g_assert_false (gtk_widget_get_visible (revealer));
   g_assert_false (gtk_widget_has_css_class (downloads_icon, "downloads-complete"));
@@ -978,6 +1014,313 @@ test_interface (void)
   }
 }
 
+static void
+glass_page_loaded_cb (WebKitWebView  *view,
+                      WebKitLoadEvent event,
+                      gpointer        user_data)
+{
+  if (event == WEBKIT_LOAD_FINISHED)
+    g_main_loop_quit (user_data);
+}
+
+static void
+toolbar_color_snapshot_test_cb (GObject      *object,
+                                GAsyncResult *result,
+                                gpointer      user_data)
+{
+  g_autoptr (GError) error = NULL;
+  g_autoptr (GdkTexture) texture = webkit_web_view_get_snapshot_finish (WEBKIT_WEB_VIEW (object), result, &error);
+  GdkRGBA color;
+
+  g_assert_no_error (error);
+  g_assert_nonnull (texture);
+  g_assert_true (ephy_toolbar_color_from_texture (texture, &color));
+  g_assert_cmpfloat (color.red, >, .9);
+  g_assert_cmpfloat (color.blue, <, .1);
+  g_main_loop_quit (user_data);
+}
+
+static void
+test_liquid_glass_toolbar (void)
+{
+  EphyShell *shell = ephy_shell_get_default ();
+  EphyWindow *window = ephy_window_new ();
+  EphyEmbed *embed = ephy_shell_new_tab_full (shell, NULL, NULL, window, NULL, EPHY_NEW_TAB_DONT_SHOW_WINDOW);
+  EphyWebView *view = ephy_embed_get_web_view (embed);
+  GtkWidget *appearance = g_object_ref_sink (g_object_new (EPHY_TYPE_PREFS_APPEARANCE_PAGE, NULL));
+  AdwSwitchRow *row = ADW_SWITCH_ROW (gtk_widget_get_template_child (appearance, EPHY_TYPE_PREFS_APPEARANCE_PAGE, "liquid_glass_toolbar"));
+  EphyFullscreenBox *outer = EPHY_FULLSCREEN_BOX (gtk_widget_get_template_child (GTK_WIDGET (window), EPHY_TYPE_WINDOW, "fullscreen_box"));
+  AdwOverlaySplitView *split = ADW_OVERLAY_SPLIT_VIEW (gtk_widget_get_template_child (GTK_WIDGET (window), EPHY_TYPE_WINDOW, "navigation_split_view"));
+  EphyFullscreenBox *inner = EPHY_FULLSCREEN_BOX (adw_overlay_split_view_get_content (split));
+  g_autoptr (GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  guint previous_scheme = g_settings_get_uint (EPHY_SETTINGS_MAIN, EPHY_PREFS_BROWSER_COLOR_SCHEME);
+  graphene_rect_t before, after;
+
+  g_assert_false (adw_switch_row_get_active (row));
+  g_settings_set_uint (EPHY_SETTINGS_MAIN, EPHY_PREFS_BROWSER_COLOR_SCHEME, 1);
+  g_assert_null (ephy_fullscreen_box_get_toolbar_color (outer));
+  gtk_window_present (GTK_WINDOW (window));
+  g_signal_connect (view, "load-changed", G_CALLBACK (glass_page_loaded_cb), loop);
+  ephy_web_view_load_url (view, "about:overview");
+  g_main_loop_run (loop);
+  g_signal_handlers_disconnect_by_func (view, glass_page_loaded_cb, loop);
+  g_timeout_add_once (150, session_save_wait_cb, loop);
+  g_main_loop_run (loop);
+  g_assert_true (gtk_widget_compute_bounds (GTK_WIDGET (view), GTK_WIDGET (window), &before));
+  /* Real WebKit snapshot: a red 1px top row over a blue page. This also verifies
+   * that the snapshot path returns sampleable memory, not a DMA-BUF texture. */
+  webkit_web_view_evaluate_javascript (WEBKIT_WEB_VIEW (view),
+                                      "document.body.innerHTML = '';"
+                                      "document.body.style.cssText = 'margin:0;background:blue';"
+                                      "document.documentElement.style.background = 'blue';"
+                                      "let edge = document.createElement('div');"
+                                      "edge.style.cssText = 'position:fixed;inset:0 0 auto 0;height:1px;background:red;z-index:2147483647';"
+                                      "document.body.appendChild(edge);'PASS'", -1, NULL, NULL, NULL,
+                                      javascript_checked_cb, loop);
+  g_main_loop_run (loop);
+  g_timeout_add_once (100, session_save_wait_cb, loop);
+  g_main_loop_run (loop);
+  webkit_web_view_get_snapshot (WEBKIT_WEB_VIEW (view), WEBKIT_SNAPSHOT_REGION_VISIBLE,
+                                WEBKIT_SNAPSHOT_OPTIONS_NONE, NULL, toolbar_color_snapshot_test_cb, loop);
+  g_main_loop_run (loop);
+
+  adw_switch_row_set_active (row, TRUE);
+  g_assert_true (g_settings_get_boolean (EPHY_SETTINGS_MAIN, EPHY_PREFS_LIQUID_GLASS_TOOLBAR));
+  g_assert_true (gtk_widget_has_css_class (GTK_WIDGET (window), "savana-liquid-glass"));
+  g_assert_nonnull (ephy_fullscreen_box_get_toolbar_color (outer));
+  g_assert_true (gdk_rgba_equal (ephy_fullscreen_box_get_toolbar_color (outer), ephy_fullscreen_box_get_toolbar_color (inner)));
+  g_timeout_add_once (150, session_save_wait_cb, loop);
+  g_main_loop_run (loop);
+  g_assert_true (gtk_widget_compute_bounds (GTK_WIDGET (view), GTK_WIDGET (window), &after));
+  g_assert_cmpfloat (before.origin.y, ==, after.origin.y);
+  g_assert_cmpfloat (before.size.height, ==, after.size.height);
+  /* Exercise the resize animation that previously attempted to download a
+   * WebView DMA-BUF while opening and closing the sidebar. */
+  for (guint i = 0; i < 20; i++) {
+    gtk_widget_activate_action (GTK_WIDGET (window), "win.toggle-sidebar", NULL);
+    g_timeout_add_once (60, session_save_wait_cb, loop);
+    g_main_loop_run (loop);
+    g_assert_true (ephy_embed_container_get_active_child (EPHY_EMBED_CONTAINER (window)) == embed);
+  }
+  g_assert_false (adw_overlay_split_view_get_show_sidebar (split));
+  /* Reset outstanding sampling before the deterministic render assertion. */
+  adw_switch_row_set_active (row, FALSE);
+  adw_switch_row_set_active (row, TRUE);
+  {
+    GdkRGBA red = { 1, .15, 0, 1 };
+
+    /* Only a flat color reaches the toolbar render tree, never a page node. */
+    ephy_fullscreen_box_set_toolbar_color (outer, &red);
+    ephy_fullscreen_box_set_toolbar_color (inner, &red);
+    g_timeout_add_once (150, session_save_wait_cb, loop);
+    g_main_loop_run (loop);
+  }
+  {
+    g_autoptr (GdkPaintable) paintable = gtk_widget_paintable_new (GTK_WIDGET (window));
+    GtkSnapshot *snapshot = gtk_snapshot_new ();
+    g_autoptr (GskRenderNode) node = NULL;
+    g_autoptr (GdkTexture) texture = NULL;
+    g_autoptr (GdkTextureDownloader) downloader = NULL;
+    g_autoptr (GBytes) pixels = NULL;
+    const guint8 *pixel;
+    gsize stride;
+
+    gtk_widget_queue_draw (GTK_WIDGET (window));
+    g_timeout_add_once (100, session_save_wait_cb, loop);
+    g_main_loop_run (loop);
+    gdk_paintable_snapshot (paintable, GDK_SNAPSHOT (snapshot),
+                            gtk_widget_get_width (GTK_WIDGET (window)), gtk_widget_get_height (GTK_WIDGET (window)));
+    node = gtk_snapshot_free_to_node (snapshot);
+    g_assert_nonnull (node);
+    texture = gsk_renderer_render_texture (gtk_native_get_renderer (GTK_NATIVE (window)), node, NULL);
+    g_assert_nonnull (texture);
+    downloader = gdk_texture_downloader_new (texture);
+    gdk_texture_downloader_set_format (downloader, GDK_MEMORY_R8G8B8A8);
+    pixels = gdk_texture_downloader_download_bytes (downloader, &stride);
+    pixel = (const guint8 *)g_bytes_get_data (pixels, NULL) + 10 * stride + (gdk_texture_get_width (texture) / 2) * 4;
+    g_assert_cmpuint (pixel[0], >, 200);
+    g_assert_cmpuint (pixel[2], <, 200);
+  }
+  {
+    EphyWindow *second = ephy_window_new ();
+    EphyEmbed *other = ephy_shell_new_tab_full (shell, NULL, NULL, window, NULL, EPHY_NEW_TAB_JUMP | EPHY_NEW_TAB_DONT_SHOW_WINDOW);
+
+    g_assert_true (gtk_widget_has_css_class (GTK_WIDGET (second), "savana-liquid-glass"));
+    g_assert_nonnull (ephy_fullscreen_box_get_toolbar_color (outer));
+    g_assert_true (ephy_embed_container_get_active_child (EPHY_EMBED_CONTAINER (window)) == other);
+    g_settings_set_boolean (EPHY_SETTINGS_MAIN, EPHY_PREFS_LIQUID_GLASS_TOOLBAR, FALSE);
+    g_assert_false (adw_switch_row_get_active (row));
+    g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (second), "savana-liquid-glass"));
+    gtk_window_destroy (GTK_WINDOW (second));
+  }
+  g_assert_false (gtk_widget_has_css_class (GTK_WIDGET (window), "savana-liquid-glass"));
+  g_assert_null (ephy_fullscreen_box_get_toolbar_color (outer));
+  g_assert_null (ephy_fullscreen_box_get_toolbar_color (inner));
+  gtk_window_destroy (GTK_WINDOW (window));
+  g_object_unref (appearance);
+  g_settings_set_uint (EPHY_SETTINGS_MAIN, EPHY_PREFS_BROWSER_COLOR_SCHEME, previous_scheme);
+}
+
+static void
+test_toolbar_edge_color (void)
+{
+  /* The lower row has an unrelated color; the first row's majority wins. */
+  const guint8 data[] = {
+    255, 40, 0, 255, 255, 40, 0, 255, 0, 0, 255, 255,
+    0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255
+  };
+  const guint8 transparent[] = { 255, 0, 0, 0 };
+  g_autoptr (GBytes) bytes = g_bytes_new (data, sizeof data);
+  g_autoptr (GBytes) empty = g_bytes_new (transparent, sizeof transparent);
+  g_autoptr (GdkTexture) texture = gdk_memory_texture_new (3, 2, GDK_MEMORY_R8G8B8A8, bytes, 12);
+  g_autoptr (GdkTexture) clear = gdk_memory_texture_new (1, 1, GDK_MEMORY_R8G8B8A8, empty, 4);
+  GdkRGBA color;
+
+  g_assert_true (ephy_toolbar_color_from_texture (texture, &color));
+  g_assert_cmpfloat (color.red, ==, 1);
+  g_assert_cmpfloat_with_epsilon (color.green, 40.0 / 255, .001);
+  g_assert_cmpfloat (color.blue, ==, 0);
+  g_assert_cmpfloat (color.alpha, ==, 1);
+  g_assert_false (ephy_toolbar_color_from_texture (clear, &color));
+}
+
+static void
+session_restore_test_finished_cb (GObject      *object,
+                                  GAsyncResult *result,
+                                  gpointer      user_data)
+{
+  g_autoptr (GError) error = NULL;
+
+  g_assert_true (ephy_session_resume_finish (EPHY_SESSION (object), result, &error));
+  g_assert_no_error (error);
+  g_main_loop_quit (user_data);
+}
+
+static void
+session_import_test_finished_cb (GObject      *object,
+                                 GAsyncResult *result,
+                                 gpointer      user_data)
+{
+  g_autoptr (GError) error = NULL;
+
+  g_assert_true (ephy_session_load_from_stream_finish (EPHY_SESSION (object), result, &error));
+  g_assert_no_error (error);
+  g_main_loop_quit (user_data);
+}
+
+static void
+test_session_start_pages (void)
+{
+  const char *xml = "<session><window active-tab='3'>"
+                    "<embed url='about:overview' title='Start Page'/>"
+                    "<embed url='https://keep-first.test/' title='First'/>"
+                    "<embed url='ephy-about:newtab' title='Start Page' pinned='true'/>"
+                    "<embed url='https://keep-second.test/' title='Start Page'/>"
+                    "</window><window active-tab='0'>"
+                    "<embed url='ephy-about:overview' title='Start Page'/>"
+                    "<embed url='about:newtab' title='Start Page'/>"
+                    "</window></session>";
+  EphyShell *shell = ephy_shell_get_default ();
+  EphySession *session = ephy_shell_get_session (shell);
+  g_autofree char *path = g_build_filename (ephy_profile_dir (), "session_state.xml", NULL);
+  g_autoptr (GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  g_autoptr (GInputStream) stream = NULL;
+  EphyWindow *window = NULL;
+  AdwTabView *tabs;
+
+  g_assert_cmpuint (ephy_shell_get_n_windows (shell), ==, 0);
+  g_assert_true (g_file_set_contents (path, xml, -1, NULL));
+  ephy_session_resume (session, NULL, session_restore_test_finished_cb, loop);
+  g_main_loop_run (loop);
+  g_assert_cmpuint (ephy_shell_get_n_windows (shell), ==, 1);
+  for (GList *l = gtk_application_get_windows (GTK_APPLICATION (shell)); l; l = l->next)
+    if (EPHY_IS_WINDOW (l->data))
+      window = l->data;
+  g_assert_nonnull (window);
+  tabs = ephy_tab_view_get_tab_view (ephy_window_get_tab_view (window));
+  g_assert_cmpint (adw_tab_view_get_n_pages (tabs), ==, 2);
+  g_assert_true (adw_tab_view_get_selected_page (tabs) == adw_tab_view_get_nth_page (tabs, 1));
+  for (int i = 0; i < 2; i++) {
+    EphyEmbed *embed = EPHY_EMBED (adw_tab_page_get_child (adw_tab_view_get_nth_page (tabs, i)));
+
+    g_assert_cmpstr (webkit_web_view_get_uri (WEBKIT_WEB_VIEW (ephy_embed_get_web_view (embed))), ==,
+                     i == 0 ? "https://keep-first.test/" : "https://keep-second.test/");
+  }
+  gtk_window_destroy (GTK_WINDOW (window));
+
+  /* Importing an explicit session is lossless, unlike automatic resume. */
+  stream = g_memory_input_stream_new_from_data (xml, -1, NULL);
+  ephy_session_load_from_stream (session, stream, NULL, session_import_test_finished_cb, loop);
+  g_main_loop_run (loop);
+  g_assert_cmpuint (ephy_shell_get_n_windows (shell), ==, 2);
+  while (gtk_application_get_windows (GTK_APPLICATION (shell)))
+    gtk_window_destroy (gtk_application_get_windows (GTK_APPLICATION (shell))->data);
+
+  g_assert_true (g_file_set_contents (path,
+                                     "<session><window><embed url='about:overview'/></window></session>", -1, NULL));
+  ephy_session_resume (session, NULL, session_restore_test_finished_cb, loop);
+  g_main_loop_run (loop);
+  g_assert_cmpuint (ephy_shell_get_n_windows (shell), ==, 0);
+}
+
+static void
+test_window_controls_theme (void)
+{
+  const char *buttons[] = { "close", "minimize", "maximize", "restore" };
+  const char *svg = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='32'>"
+                    "<g id='active-center'><rect width='16' height='16' fill='red'/></g>"
+                    "<g id='hover-center' transform='translate(0 16)'>"
+                    "<rect width='16' height='16' fill='blue'/></g></svg>";
+  g_autofree char *directory = g_build_filename (g_get_tmp_dir (), "savana-controls-XXXXXX", NULL);
+  g_autoptr (GtkCssProvider) provider = NULL;
+  g_autofree char *css = NULL;
+
+  g_assert_nonnull (g_mkdtemp (directory));
+  g_assert_null (ephy_window_controls_load_theme (directory));
+  for (guint i = 0; i < G_N_ELEMENTS (buttons); i++) {
+    g_autofree char *filename = g_strdup_printf ("%s.svg", buttons[i]);
+    g_autofree char *path = g_build_filename (directory, filename, NULL);
+
+    g_assert_true (g_file_set_contents (path, svg, -1, NULL));
+  }
+  provider = ephy_window_controls_load_theme (directory);
+  g_assert_nonnull (provider);
+  css = gtk_css_provider_to_string (provider);
+  g_assert_nonnull (strstr (css, "window.maximized"));
+  g_assert_nonnull (strstr (css, "button.close"));
+  g_assert_nonnull (strstr (css, "button.minimize"));
+  g_assert_nonnull (strstr (css, ":backdrop"));
+  g_assert_nonnull (strstr (css, ":hover"));
+  g_assert_nonnull (strstr (css, ":active"));
+  g_assert_nonnull (strstr (css, "background-size: 16px 16px"));
+  for (guint i = 0; i < 2; i++) {
+    g_autofree char *input = g_strconcat (svg, i == 0 ? "v1:#active-center:16:16" : "v1:#hover-center:16:16", NULL);
+    g_autofree char *digest = g_compute_checksum_for_string (G_CHECKSUM_SHA256, input, -1);
+    g_autofree char *filename = g_strconcat (digest, ".png", NULL);
+    g_autofree char *path = g_build_filename (g_get_user_cache_dir (), "savana", "window-buttons", filename, NULL);
+    g_autoptr (GdkPixbuf) pixbuf = gdk_pixbuf_new_from_file (path, NULL);
+    const guchar *pixels;
+
+    g_assert_nonnull (pixbuf);
+    g_assert_cmpint (gdk_pixbuf_get_width (pixbuf), ==, 32);
+    g_assert_cmpint (gdk_pixbuf_get_height (pixbuf), ==, 32);
+    pixels = gdk_pixbuf_read_pixels (pixbuf);
+    g_assert_cmpint (pixels[0], ==, i == 0 ? 255 : 0);
+    g_assert_cmpint (pixels[2], ==, i == 0 ? 0 : 255);
+  }
+  for (guint i = 0; i < G_N_ELEMENTS (buttons); i++) {
+    g_autofree char *filename = g_strdup_printf ("%s.svg", buttons[i]);
+    g_autofree char *path = g_build_filename (directory, filename, NULL);
+
+    if (i == 0) {
+      g_assert_true (g_file_set_contents (path, "not an SVG", -1, NULL));
+      g_assert_null (ephy_window_controls_load_theme (directory));
+    }
+    g_assert_cmpint (g_remove (path), ==, 0);
+  }
+  g_assert_cmpint (g_rmdir (directory), ==, 0);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -991,6 +1334,10 @@ main (int argc, char **argv)
   _ephy_shell_create_instance (EPHY_EMBED_SHELL_MODE_TEST);
   g_assert_true (g_application_register (G_APPLICATION (ephy_shell_get_default ()), NULL, NULL));
   g_test_add_func ("/savana/interface", test_interface);
+  g_test_add_func ("/savana/window-controls-theme", test_window_controls_theme);
+  g_test_add_func ("/savana/liquid-glass-toolbar", test_liquid_glass_toolbar);
+  g_test_add_func ("/savana/toolbar-edge-color", test_toolbar_edge_color);
+  g_test_add_func ("/savana/session-start-pages", test_session_start_pages);
   g_test_add_func ("/savana/bookmark-preview", test_bookmark_preview);
   g_test_add_func ("/savana/favicon-tile", test_favicon_tile);
   g_test_add_func ("/savana/favicon-monochrome-tile", test_favicon_monochrome_tile);

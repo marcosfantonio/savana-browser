@@ -67,6 +67,18 @@ change.
 - `src/ephy-shell.c`: application/window lifecycle, application actions, and
   the point where Savana's global menu and per-browser-window behavior are
   attached. It filters auxiliary windows where browser-only logic is required.
+  Normal browser launches restore the previous session before opening the
+  Start Page as the active tab, preserving restored tabs and windows.
+  Launches without arguments (including subsequent launcher activations) open
+  `about:overview`, independently of the custom home-URL preference. An active
+  empty/start-page tab can be reused, but regular restored pages are not replaced. Explicit
+  URLs/session files and non-browser application modes retain their own flow.
+  Session serialization, saved groups and explicit session loading are unchanged.
+  Automatic session resume skips saved `about:overview`/`about:newtab` tabs
+  (including the `ephy-about:` variants), even when pinned, so only the fresh
+  Start Page remains. It matches internal URLs, never titles or external
+  homepages. Active indices account for skipped tabs; windows containing only
+  old Start Pages are omitted. Explicit session imports retain their contents.
 - `src/ephy-global-menu.c`: declares the global menu hierarchy and maps menu
   labels to application (`app.`) or window (`win.`) actions. Keep this menu
   intentional and distinct from the website's own page content.
@@ -75,8 +87,10 @@ change.
   enabled/check state and invokes the corresponding GAction. A model item
   intentionally omitted from the global menu must not be reintroduced here.
 - `src/resources/savana.css`: application chrome styling, transparency,
-  sidebar and popup appearance. Light-mode chrome on regular pages mirrors the
-  dark-mode surfaces, border placement and shadow behavior with a light palette;
+  sidebar and popup appearance. Light-mode chrome uses white outlines and soft
+  shadows on toolbar button groups, the URL field and open tabs; these do not
+  change dark-mode styling or system window-control artwork. Regular pages use
+  solid surfaces with the corresponding light/dark palette;
   the start page retains the glass treatment. All browser popover outer surfaces are cleared
   here to avoid opaque rectangular shadows behind the rounded content. The
   bookmarks view receives `savana-bookmarks` from `ephy-window.c` so its
@@ -86,13 +100,60 @@ change.
   and explicit switch/checkbox contrast without changing dark mode or the
   dialog's dimmed parent-window backdrop. Its dark-mode marker follows the
   current `AdwStyleManager` setting.
+  The sidebar toggle has a dedicated `savana-sidebar-toggle` CSS class so its
+  pill border outranks generic borderless toolbar-button rules; its light-mode
+  white outline and shadow match the neighboring navigation controls.
 - GTK templates/Blueprints and their C controllers live under
   `src/resources/gtk/` and `src/`; change both sides consistently.
+- `src/ephy-window-controls.c` reads Plasma's `kwinrc` decoration selection
+  (`org.kde.kdecoration2`) on KDE desktops. It parses
+  only that group's keys (other KConfig groups can use nested headers that
+  GLib's INI parser does not accept). For Aurorae SVG themes it renders
+  the close/minimize/maximize/restore sprite elements with librsvg and applies
+  only their artwork to the existing GTK window controls. Header layout,
+  accessibility, actions and system GTK button placement remain unchanged.
+  Active, inactive, hover and pressed states and maximized restore artwork
+  follow the theme. Missing sprite states use the active artwork. Themes are
+  resolved under XDG data directories; unsupported native KDecoration plugins
+  or incomplete themes retain the system GTK controls, not a simulated KWin
+  theme. The selected theme is reloaded when `kwinrc` changes. Rendered 2x PNGs
+  are cached in `$XDG_CACHE_HOME/savana/window-buttons/` using a SHA-256 of the
+  source SVG, state and dimensions; deleting this cache is safe. Only button
+  artwork uses a scoped CSS override above user CSS priority so existing GTK
+  theme sprites do not mask the selected KWin artwork.
 
 The GTK app menu is not itself sufficient for Plasma: DBusMenu exports the
 actual hierarchical menu and the native registration ties that object to each
 window. Read `docs/global-menu.md` for backend behavior, packaging dependencies
 and diagnostics. Keep new actionable menu entries backed by real GActions.
+
+## Optional Liquid Glass Toolbar
+
+Appearance → Theme exposes “Liquid Glass Toolbar”, persisted by the main
+`org.gnome.Epiphany` boolean `liquid-glass-toolbar` (default false). Changes
+apply immediately to existing/new browser windows, independently of color
+scheme. The window samples the first visible pixel row of the active WebView.
+`src/ephy-toolbar-color.c` selects that row's dominant 4-bit RGB histogram bucket
+and averages its original RGB values with alpha weighting; the rest of the
+viewport never contributes. Transparent rows keep the page/palette fallback.
+Both fullscreen boxes paint only the resulting solid RGBA behind their top bars;
+the sidebar uses the same per-window CSS color and translucent glass surfaces.
+Page layout, scroll position, fixed site headers and pointer coordinates remain
+unchanged. No page elements are hidden under browser chrome, and no DOM/script
+injection or KWin protocol is used.
+`savana-liquid-glass` scopes translucent light/dark controls, URL field and
+tab capsule in `savana.css`; native KWin control artwork remains unchanged.
+The effect uses translucent highlights, not macOS optical refraction or a copy
+of the website. A `GtkWidgetPaintable` observes invalidation only and is never
+rendered into the chrome. Invalidations coalesce into asynchronous WebKit
+visible-region shared-memory snapshots, at most two requests/second and one
+in flight. Only memory textures may be sampled; GPU/DMA-BUF readback is never
+attempted. Snapshot pixels are discarded immediately, never persisted. This
+replaces the old mirrored/blurred render nodes, which caused a fatal GTK
+“Failed to download … dmabuf texture” when the sidebar resized the WebView.
+Disabling the option, switching tabs or closing a window cancels queued/in-flight
+work; weak callbacks and request identity prevent stale colors or use-after-free.
+Popovers, preferences and fullscreen autohide retain their layout/behavior.
 
 ## Sidebar, tab groups, and saved content
 
@@ -161,6 +222,14 @@ Outside the start page, compact tab chrome keeps 6px of padding below the tabs;
 only surrounding whitespace changes, not button or tab sizes.
 The tab bar uses libadwaita's inverted layout to put its native close buttons
 on the left; do not reparent private tab widgets to move them.
+When enabled, the strip stays visible even with one tab and expands tabs across a single
+rounded gray capsule, as in `startpage.png`. Inactive tabs are transparent;
+the selected tab is an inset white pill in light mode (dark surfaces remain
+dark). Native selection, close, reorder and overflow behavior remain owned by
+AdwTabBar. The explicit Never visibility preference and tab-width preference
+remain supported. Overview/new-tab pages have the localized tab title “Start Page”
+(“Página Inicial” in Portuguese) and Savana's outlined star icon, overriding
+internal document titles/favicons only for these pages.
 
 ## Downloads and popovers
 
@@ -173,6 +242,14 @@ Downloads are available from the toolbar and the existing menu/shortcut actions,
 not the sidebar footer. Explicitly opening downloads temporarily reveals the
 toolbar button, including when only previously opened downloads remain; closing
 the popup restores the normal activity-based button visibility.
+The toolbar download glyph is 18px (the button's hit area is unchanged), using
+a thin arrow inside an inset circular progress outline, following `abas.png`.
+The URL's site-menu default artwork is an outlined rectangle with two lines
+below, matching that reference; its existing notification animations and menu
+actions remain intact. The URL loading/stop button uses Savana's own plain X
+symbolic asset so system icon themes cannot add a circle around it.
+Completion keeps its normal inherited toolbar icon color, including during
+the completion animation, and clears any temporary blue new-download highlight.
 “Show in folder” opens a download's containing directory (including for an
 in-progress download whose file is not yet present). Savana passes a directory
 URI to the desktop portal's `OpenDirectory` operation, which cannot select a

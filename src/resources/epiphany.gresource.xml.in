@@ -71,6 +71,8 @@
   <gresource prefix="/org/gnome/Epiphany/icons">
     <file compressed="true" alias="scalable/actions/savana-share-symbolic.svg">savana-share-symbolic.svg</file>
     <file compressed="true" alias="scalable/actions/savana-tabs-symbolic.svg">savana-tabs-symbolic.svg</file>
+    <file compressed="true" alias="scalable/actions/savana-stop-symbolic.svg">savana-stop-symbolic.svg</file>
+    <file compressed="true" alias="scalable/actions/savana-start-page-symbolic.svg">savana-start-page-symbolic.svg</file>
     <file compressed="true" alias="scalable/actions/savana-bookmarks-symbolic.svg">savana-bookmarks-symbolic.svg</file>
     <file compressed="true" alias="scalable/actions/savana-reading-list-symbolic.svg">savana-reading-list-symbolic.svg</file>
     <file compressed="true" alias="scalable/actions/savana-recent-symbolic.svg">savana-recent-symbolic.svg</file>

@@ -69,7 +69,8 @@
 .savana-header-bar .navigation-box,
 .savana-header-bar .savana-controls,
 .savana-header-bar .savana-menu menubutton > button,
-.savana-header-bar .savana-menu stack > button {
+.savana-header-bar .savana-menu stack > button,
+.savana-window .savana-header-bar .savana-menu button.savana-sidebar-toggle {
   background: alpha(white, .26);
   border: 1px solid alpha(white, .38);
   border-radius: 999px;
@@ -141,8 +142,9 @@
 
 .savana-tab-bar .box {
   margin: 0;
-  padding: 0;
-  background: transparent;
+  padding: 2px;
+  background: #eeeeee;
+  border-radius: 999px;
   color: #3d4548;
 }
 
@@ -152,19 +154,19 @@
 }
 
 .savana-tab-bar tab {
-  background: alpha(white, .14);
-  border: 1px solid alpha(white, .12);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 999px;
   box-shadow: none;
-  margin: 0 2px;
+  margin: 0;
   padding: 0 8px;
   min-height: 28px;
   color: #3d4548;
 }
 
 .savana-tab-bar tab:selected {
-  background: alpha(white, .44);
-  border-color: alpha(white, .5);
+  background: #ffffff;
+  border-color: alpha(black, .08);
   box-shadow: 0 1px 3px alpha(#34434a, .12);
 }
 
@@ -247,22 +249,24 @@ popover.suggestions listview > row > grid {
 .savana-dark .savana-header-bar .navigation-box,
 .savana-dark .savana-header-bar .savana-controls,
 .savana-dark .savana-header-bar .savana-menu menubutton > button,
-.savana-dark .savana-header-bar .savana-menu stack > button {
+.savana-dark .savana-header-bar .savana-menu stack > button,
+.savana-window.savana-dark .savana-header-bar .savana-menu button.savana-sidebar-toggle {
   background: #2b2b2b;
   border-color: #464646;
   box-shadow: none;
 }
 .savana-dark .savana-header-bar .location-entry { background: #303030; color: #f3f3f3; border-color: #494949; box-shadow: none; }
 .savana-dark .savana-header-bar .location-entry:focus-within { background: #383838; }
-.savana-dark .savana-tab-bar tab { background: #303030; border-color: transparent; }
+.savana-dark .savana-tab-bar .box { background: #292929; }
+.savana-dark .savana-tab-bar tab { background: transparent; border-color: transparent; }
 .savana-dark .savana-tab-bar tab:selected { background: #505050; border-color: #5b5b5b; box-shadow: none; }
 .savana-dark .savana-header-bar button:not(.close):not(.minimize):not(.maximize):hover { background: #474747; }
 .savana-dark popover.suggestions > contents { background: #303030; color: #eeeeee; border-color: #555555; }
 .savana-dark popover.suggestions listview { color: #eeeeee; }
 .savana-dark .savana-sidebar { background: var(--savana-glass-bg); color: #e8e8e8; }
 
-/* Light palette counterpart to the dark chrome rules above. Keep identical
- * surfaces, borders and shadow behavior; only swap the colors. */
+/* Light chrome keeps white outlines and subtle elevation, without changing
+ * the dark palette or the system window-control artwork. */
 .savana-window:not(.savana-dark) .savana-toolbar-view > .top-bar,
 .savana-window:not(.savana-dark) .savana-toolbar-view > .top-bar:backdrop {
   background: var(--savana-glass-bg);
@@ -278,15 +282,16 @@ popover.suggestions listview > row > grid {
 .savana-window:not(.savana-dark) .savana-header-bar .navigation-box,
 .savana-window:not(.savana-dark) .savana-header-bar .savana-controls,
 .savana-window:not(.savana-dark) .savana-header-bar .savana-menu menubutton > button,
-.savana-window:not(.savana-dark) .savana-header-bar .savana-menu stack > button {
+.savana-window:not(.savana-dark) .savana-header-bar .savana-menu stack > button,
+.savana-window:not(.savana-dark) .savana-header-bar .savana-menu button.savana-sidebar-toggle {
   background: #f0f0f0;
-  border-color: #d0d0d0;
-  box-shadow: none;
+  border-color: #ffffff;
+  box-shadow: 0 1px 4px alpha(black, .10), inset 0 1px alpha(white, .65);
 }
-.savana-window:not(.savana-dark) .savana-header-bar .location-entry { background: #eeeeee; color: #202020; border-color: #cecece; box-shadow: none; }
+.savana-window:not(.savana-dark) .savana-header-bar .location-entry { background: #eeeeee; color: #202020; border-color: #ffffff; box-shadow: 0 1px 5px alpha(black, .10), inset 0 1px alpha(white, .65); }
 .savana-window:not(.savana-dark) .savana-header-bar .location-entry:focus-within { background: #e6e6e6; }
-.savana-window:not(.savana-dark) .savana-tab-bar tab { background: #eeeeee; border-color: #c4c4c4; }
-.savana-window:not(.savana-dark) .savana-tab-bar tab:selected { background: #d0d0d0; border-color: #c4c4c4; box-shadow: none; }
+.savana-window:not(.savana-dark) .savana-tab-bar tab { background: transparent; border-color: transparent; box-shadow: none; }
+.savana-window:not(.savana-dark) .savana-tab-bar tab:selected { background: #ffffff; border-color: alpha(black, .08); box-shadow: 0 1px 4px alpha(black, .12); }
 .savana-window:not(.savana-dark) .savana-header-bar button:not(.close):not(.minimize):not(.maximize):hover { background: #d8d8d8; }
 .savana-window:not(.savana-dark) popover.suggestions > contents { background: #eeeeee; color: #202020; border-color: #cccccc; }
 .savana-window:not(.savana-dark) popover.suggestions listview { color: #202020; }
@@ -341,7 +346,69 @@ popover.suggestions listview > row > grid {
   margin-bottom: 0;
 }
 .savana-compact .savana-tab-bar { padding-bottom: 6px; }
-.savana-header-bar image.downloads-complete { color: var(--accent-color); }
+.savana-header-bar image.downloads-complete { color: inherit; }
+
+/* Liquid Glass is opt-in. A solid color sampled from the first visible row
+ * replaces the old mirrored WebView/blur render nodes. */
+.savana-window.savana-liquid-glass fullscreenbox .savana-toolbar-view > .top-bar,
+.savana-window.savana-liquid-glass fullscreenbox .savana-toolbar-view > .top-bar:backdrop,
+.savana-window.savana-liquid-glass fullscreenbox .savana-toolbar-view .savana-header-bar,
+.savana-window.savana-liquid-glass fullscreenbox .savana-toolbar-view .savana-header-bar:backdrop {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.savana-window.savana-liquid-glass .savana-header-bar .navigation-box,
+.savana-window.savana-liquid-glass .savana-header-bar .savana-controls,
+.savana-window.savana-liquid-glass .savana-header-bar .savana-menu button.savana-sidebar-toggle,
+.savana-window.savana-liquid-glass .savana-header-bar .savana-menu menubutton > button,
+.savana-window.savana-liquid-glass .savana-header-bar .location-entry {
+  background: alpha(#f8fafb, .56);
+  background-image: linear-gradient(to bottom, alpha(white, .25), alpha(white, .02));
+  border: 1px solid alpha(white, .70);
+  box-shadow: inset 0 1px alpha(white, .45), 0 2px 8px alpha(black, .12);
+}
+.savana-window.savana-liquid-glass .savana-header-bar .location-entry:focus-within {
+  background-color: alpha(#f8fafb, .85);
+}
+.savana-window.savana-liquid-glass .savana-tab-bar .box {
+  background: alpha(#f8fafb, .35);
+  box-shadow: inset 0 1px alpha(white, .40);
+}
+.savana-window.savana-liquid-glass .savana-tab-bar tab {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.savana-window.savana-liquid-glass .savana-tab-bar tab:selected {
+  background: alpha(white, .63);
+  border-color: alpha(white, .75);
+  box-shadow: inset 0 1px alpha(white, .40), 0 1px 5px alpha(black, .12);
+}
+.savana-window.savana-liquid-glass .savana-header-bar button:not(.close):not(.minimize):not(.maximize):hover {
+  background-color: alpha(white, .30);
+}
+.savana-window.savana-liquid-glass.savana-dark .savana-header-bar .navigation-box,
+.savana-window.savana-liquid-glass.savana-dark .savana-header-bar .savana-controls,
+.savana-window.savana-liquid-glass.savana-dark .savana-header-bar .savana-menu button.savana-sidebar-toggle,
+.savana-window.savana-liquid-glass.savana-dark .savana-header-bar .savana-menu menubutton > button,
+.savana-window.savana-liquid-glass.savana-dark .savana-header-bar .location-entry {
+  background-color: alpha(#202528, .64);
+  border-color: alpha(white, .28);
+}
+.savana-window.savana-liquid-glass.savana-dark .savana-header-bar .location-entry:focus-within {
+  background-color: alpha(#202528, .85);
+}
+.savana-window.savana-liquid-glass.savana-dark .savana-tab-bar .box {
+  background: alpha(#202528, .55);
+}
+.savana-window.savana-liquid-glass.savana-dark .savana-tab-bar tab:selected {
+  background: alpha(#79848a, .50);
+  border-color: alpha(white, .35);
+}
+.savana-window.savana-liquid-glass.savana-dark .savana-header-bar button:not(.close):not(.minimize):not(.maximize):hover {
+  background-color: alpha(white, .14);
+}
 
 /* These rules must outrank the application palette and user GTK theme.
  * Only the start page lets the shared wallpaper show through the chrome. */
@@ -554,4 +621,34 @@ popover.suggestions listview > row > grid {
 .savana-window.savana-surface .savana-sidebar-tools button:hover,
 .savana-window.savana-surface .savana-sidebar-tools button:checked {
   background: alpha(currentColor, .12);
+}
+
+/* The sidebar shares the sampled page edge, with a translucent glass surface.
+ * Keep nested bookmark/navigation panes clear to avoid opaque rectangles. */
+.savana-window.savana-surface.savana-liquid-glass .savana-navigation > .sidebar-pane {
+  background: var(--savana-page-edge);
+  border-right: 1px solid alpha(white, .55);
+}
+.savana-window.savana-surface.savana-liquid-glass .savana-sidebar-pane,
+.savana-window.savana-surface.savana-liquid-glass.savana-compact .savana-sidebar-pane {
+  background: alpha(#f8fafb, .56);
+  background-image: linear-gradient(to bottom, alpha(white, .25), alpha(white, .02));
+  color: #272c30;
+}
+.savana-window.savana-surface.savana-liquid-glass.savana-dark .savana-sidebar-pane {
+  background-color: alpha(#202528, .64);
+  color: #eeeeee;
+}
+.savana-window.savana-surface.savana-liquid-glass .savana-sidebar {
+  background: transparent;
+  color: inherit;
+}
+.savana-window.savana-surface.savana-liquid-glass .savana-sidebar-tools {
+  background: alpha(#f8fafb, .56);
+  border-color: alpha(white, .70);
+  box-shadow: inset 0 1px alpha(white, .45), 0 2px 8px alpha(black, .12);
+}
+.savana-window.savana-surface.savana-liquid-glass.savana-dark .savana-sidebar-tools {
+  background-color: alpha(#202528, .64);
+  border-color: alpha(white, .28);
 }

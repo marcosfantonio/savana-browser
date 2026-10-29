@@ -354,6 +354,11 @@ update_title_cb (AdwTabPage *page)
       adw_tab_page_get_pinned (page))
     adw_tab_page_set_needs_attention (page, TRUE);
 
+  if (ephy_web_view_is_overview (view) || ephy_web_view_is_newtab (view)) {
+    adw_tab_page_set_title (page, _("Start Page"));
+    return;
+  }
+
   if (title && strlen (title)) {
     adw_tab_page_set_title (page, title);
     return;
@@ -374,6 +379,12 @@ update_icon_cb (AdwTabPage *page)
   GIcon *icon = ephy_web_view_get_icon (view);
   g_autoptr (GIcon) placeholder_icon = NULL;
   const char *uri, *favicon_name;
+
+  if (ephy_web_view_is_overview (view) || ephy_web_view_is_newtab (view)) {
+    placeholder_icon = g_themed_icon_new ("savana-start-page-symbolic");
+    adw_tab_page_set_icon (page, placeholder_icon);
+    return;
+  }
 
   if (icon) {
     adw_tab_page_set_icon (page, icon);
@@ -397,6 +408,7 @@ update_uri_cb (AdwTabPage *page)
   const char *uri;
 
   update_icon_cb (page);
+  update_title_cb (page);
 
   uri = webkit_web_view_get_uri (WEBKIT_WEB_VIEW (view));
 
@@ -574,8 +586,9 @@ visibility_policy_changed_cb (EphyTabView *self)
     policy = g_settings_get_enum (EPHY_SETTINGS_UI,
                                   EPHY_PREFS_UI_TABS_BAR_VISIBILITY_POLICY);
 
-  adw_tab_bar_set_autohide (self->tab_bar,
-                            policy != EPHY_PREFS_UI_TABS_BAR_VISIBILITY_POLICY_ALWAYS);
+  /* The capsule remains visible with a single tab; the explicit Never
+   * visibility preference and web-application windows still hide it. */
+  adw_tab_bar_set_autohide (self->tab_bar, FALSE);
   gtk_widget_set_visible (GTK_WIDGET (self->tab_bar),
                           mode != EPHY_EMBED_SHELL_MODE_APPLICATION &&
                           policy != EPHY_PREFS_UI_TABS_BAR_VISIBILITY_POLICY_NEVER);

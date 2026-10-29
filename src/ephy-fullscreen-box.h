@@ -30,6 +30,10 @@ G_DECLARE_FINAL_TYPE (EphyFullscreenBox, ephy_fullscreen_box, EPHY, FULLSCREEN_B
 
 EphyFullscreenBox *ephy_fullscreen_box_new            (void);
 
+const GdkRGBA     *ephy_fullscreen_box_get_toolbar_color (EphyFullscreenBox *self);
+void               ephy_fullscreen_box_set_toolbar_color (EphyFullscreenBox *self,
+                                                          const GdkRGBA     *color);
+
 gboolean           ephy_fullscreen_box_get_fullscreen (EphyFullscreenBox *self);
 void               ephy_fullscreen_box_set_fullscreen (EphyFullscreenBox *self,
                                                        gboolean           fullscreen);

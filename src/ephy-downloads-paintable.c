@@ -235,20 +235,25 @@ ephy_downloads_paintable_snapshot_symbolic (GtkSymbolicPaintable *paintable,
     gtk_snapshot_restore (snapshot);
   }
 
-  cr = gtk_snapshot_append_cairo (snapshot, &GRAPHENE_RECT_INIT (-2, -2, width + 4, width + 4));
+  /* Keep the fine circular outline inside the icon's allocation, like the
+   * toolbar reference. Only dim the remaining track during a download. */
+  cr = gtk_snapshot_append_cairo (snapshot, &GRAPHENE_RECT_INIT (0, 0, width, height));
   arc_end = self->progress * G_PI * 2 - G_PI / 2;
 
   cairo_translate (cr, width / 2.0, height / 2.0);
+  cairo_set_line_width (cr, MIN (width, height) / 12.0);
 
   gdk_cairo_set_source_rgba (cr, colors);
-  cairo_arc (cr, 0, 0, width / 2.0 + 1, -G_PI / 2, arc_end);
+  cairo_arc (cr, 0, 0, MIN (width, height) / 2.0 - 1, -G_PI / 2, arc_end);
   cairo_stroke (cr);
 
   rgba = *colors;
-  rgba.alpha *= 0.25f;
+  if (self->progress > 0 && self->progress < 1)
+    rgba.alpha *= 0.25f;
   gdk_cairo_set_source_rgba (cr, &rgba);
-  cairo_arc (cr, 0, 0, width / 2.0 + 1, arc_end, 3.0 * G_PI / 2.0);
+  cairo_arc (cr, 0, 0, MIN (width, height) / 2.0 - 1, arc_end, 3.0 * G_PI / 2.0);
   cairo_stroke (cr);
+  cairo_destroy (cr);
 }
 
 static void

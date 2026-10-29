@@ -48,6 +48,7 @@ struct _PrefsAppearancePage {
   /* Style */
   GtkWidget *css_row;
   GtkWidget *browser_color_scheme;
+  GtkWidget *liquid_glass_toolbar;
   GtkWidget *css_edit_button;
   GtkWidget *js_row;
   GtkWidget *js_edit_button;
@@ -258,6 +259,8 @@ setup_appearance_page (PrefsAppearancePage *appearance_page)
 
   g_settings_bind (EPHY_SETTINGS_MAIN, EPHY_PREFS_BROWSER_COLOR_SCHEME,
                    appearance_page->browser_color_scheme, "selected", G_SETTINGS_BIND_DEFAULT);
+  g_settings_bind (EPHY_SETTINGS_MAIN, EPHY_PREFS_LIQUID_GLASS_TOOLBAR,
+                   appearance_page->liquid_glass_toolbar, "active", G_SETTINGS_BIND_DEFAULT);
 
   /* ======================================================================== */
   /* ========================== Fonts ======================================= */
@@ -407,6 +410,7 @@ prefs_appearance_page_class_init (PrefsAppearancePageClass *klass)
 
   /* Style */
   gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, browser_color_scheme);
+  gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, liquid_glass_toolbar);
   gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, css_row);
   gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, css_edit_button);
   gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, js_row);

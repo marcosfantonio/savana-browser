@@ -141,7 +141,11 @@ ephy_shell_startup_continue (EphyShell               *shell,
 
   mode = ephy_embed_shell_get_mode (EPHY_EMBED_SHELL (shell));
 
-  if (ctx->session_filename) {
+  if (mode == EPHY_EMBED_SHELL_MODE_BROWSER && !ctx->session_filename && !ctx->arguments) {
+    const char *uris[] = { "about:overview", NULL };
+
+    ephy_shell_open_uris (shell, uris, ctx->startup_mode);
+  } else if (ctx->session_filename) {
     g_assert (session);
     ephy_session_load (session, (const char *)ctx->session_filename, NULL, NULL, NULL);
   } else if (new_window_option && shell->remote_startup_context) {
@@ -996,9 +1000,9 @@ ephy_shell_activate (GApplication *application)
   if (!shell->remote_startup_context) {
     EphySession *session = ephy_shell_get_session (shell);
 
-    /* We are activating the primary instance for the first time. If we
-     * have a saved session, resume it first, then run any startup
-     * commands in session_load_cb. Otherwise, run them now.
+    /* Restore the previous tabs before processing startup commands. Normal
+     * browser activation then opens the Start Page without discarding the
+     * restored session.
      */
     if (session) {
       ephy_session_resume (session, NULL, session_load_cb, shell->local_startup_context);

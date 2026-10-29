@@ -30,6 +30,8 @@ struct _EphyFullscreenBox {
   GtkWidget parent_instance;
 
   AdwToolbarView *toolbar_view;
+  GdkRGBA toolbar_color;
+  gboolean has_toolbar_color;
 
   gboolean fullscreen;
   gboolean autohide;
@@ -306,6 +308,25 @@ ephy_fullscreen_box_set_property (GObject      *object,
 }
 
 static void
+ephy_fullscreen_box_snapshot (GtkWidget   *widget,
+                              GtkSnapshot *snapshot)
+{
+  EphyFullscreenBox *self = EPHY_FULLSCREEN_BOX (widget);
+  double width = gtk_widget_get_width (widget);
+  double height = adw_toolbar_view_get_top_bar_height (self->toolbar_view);
+
+  if (self->has_toolbar_color && width > 0 && height > 0 &&
+      adw_toolbar_view_get_reveal_top_bars (self->toolbar_view)) {
+    /* Never clone a WebView render node here: resizing a sidebar can make
+     * GTK try to download a non-downloadable DMA-BUF from the old frame. */
+    gtk_snapshot_append_color (snapshot, &self->toolbar_color,
+                                &GRAPHENE_RECT_INIT (0, 0, width, height));
+  }
+
+  gtk_widget_snapshot_child (widget, GTK_WIDGET (self->toolbar_view), snapshot);
+}
+
+static void
 ephy_fullscreen_box_dispose (GObject *object)
 {
   EphyFullscreenBox *self = EPHY_FULLSCREEN_BOX (object);
@@ -332,6 +353,7 @@ ephy_fullscreen_box_class_init (EphyFullscreenBoxClass *klass)
 
   widget_class->root = ephy_fullscreen_box_root;
   widget_class->unroot = ephy_fullscreen_box_unroot;
+  widget_class->snapshot = ephy_fullscreen_box_snapshot;
 
   props[PROP_FULLSCREEN] =
     g_param_spec_boolean ("fullscreen",
@@ -404,6 +426,28 @@ EphyFullscreenBox *
 ephy_fullscreen_box_new (void)
 {
   return g_object_new (EPHY_TYPE_FULLSCREEN_BOX, NULL);
+}
+
+const GdkRGBA *
+ephy_fullscreen_box_get_toolbar_color (EphyFullscreenBox *self)
+{
+  g_return_val_if_fail (EPHY_IS_FULLSCREEN_BOX (self), NULL);
+
+  return self->has_toolbar_color ? &self->toolbar_color : NULL;
+}
+
+void
+ephy_fullscreen_box_set_toolbar_color (EphyFullscreenBox *self,
+                                      const GdkRGBA     *color)
+{
+  g_return_if_fail (EPHY_IS_FULLSCREEN_BOX (self));
+  if (self->has_toolbar_color == (color != NULL) &&
+      (!color || gdk_rgba_equal (&self->toolbar_color, color)))
+    return;
+  self->has_toolbar_color = color != NULL;
+  if (color)
+    self->toolbar_color = *color;
+  gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
 gboolean

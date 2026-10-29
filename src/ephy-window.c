@@ -61,6 +61,7 @@
 #include "ephy-reader-handler.h"
 #include "ephy-security-dialog.h"
 #include "ephy-savana-sidebar.h"
+#include "ephy-toolbar-color.h"
 #include "ephy-session.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
@@ -156,6 +157,11 @@ struct _EphyWindow {
 
   GtkWidget *overview;
   EphyFullscreenBox *fullscreen_box;
+  EphyFullscreenBox *page_box;
+  GtkWidgetPaintable *liquid_source;
+  GtkCssProvider *liquid_color_provider;
+  GCancellable *liquid_color_cancellable;
+  guint liquid_color_timeout;
   GtkWidget *header_bar;
   GHashTable *action_labels;
   EphyTabView *tab_view;
@@ -1246,6 +1252,142 @@ _ephy_window_set_default_actions_sensitive (EphyWindow *window,
 }
 
 static void
+apply_liquid_toolbar_color (EphyWindow    *window,
+                            const GdkRGBA *color)
+{
+  const GdkRGBA *current = ephy_fullscreen_box_get_toolbar_color (window->fullscreen_box);
+  g_autofree char *css = NULL;
+  g_autofree char *value = color ? gdk_rgba_to_string (color) : g_strdup ("transparent");
+
+  if ((!color && !current) || (color && current && gdk_rgba_equal (color, current)))
+    return;
+  ephy_fullscreen_box_set_toolbar_color (window->fullscreen_box, color);
+  if (window->page_box)
+    ephy_fullscreen_box_set_toolbar_color (window->page_box, color);
+  if (!color && !window->liquid_color_provider)
+    return;
+  if (!window->liquid_color_provider) {
+    g_autofree char *name = g_strdup_printf ("savana-edge-%" G_GUINT64_FORMAT, window->uid);
+
+    gtk_widget_add_css_class (GTK_WIDGET (window), name);
+    window->liquid_color_provider = gtk_css_provider_new ();
+    gtk_style_context_add_provider_for_display (gtk_widget_get_display (GTK_WIDGET (window)),
+                                                GTK_STYLE_PROVIDER (window->liquid_color_provider),
+                                                GTK_STYLE_PROVIDER_PRIORITY_USER + 3);
+  }
+  css = g_strdup_printf (".savana-edge-%" G_GUINT64_FORMAT " { --savana-page-edge: %s; }", window->uid, value);
+  gtk_css_provider_load_from_string (window->liquid_color_provider, css);
+}
+
+typedef struct {
+  GWeakRef window;
+  GCancellable *cancellable;
+} ToolbarColorRequest;
+
+static void
+toolbar_color_snapshot_cb (GObject      *object,
+                           GAsyncResult *result,
+                           gpointer      user_data)
+{
+  ToolbarColorRequest *request = user_data;
+  g_autoptr (EphyWindow) window = g_weak_ref_get (&request->window);
+  g_autoptr (GdkTexture) texture = webkit_web_view_get_snapshot_finish (WEBKIT_WEB_VIEW (object), result, NULL);
+  GdkRGBA color;
+
+  if (window && !window->closing &&
+      window->liquid_color_cancellable == request->cancellable) {
+    g_clear_object (&window->liquid_color_cancellable);
+    if (texture && ephy_toolbar_color_from_texture (texture, &color))
+      apply_liquid_toolbar_color (window, &color);
+  }
+  g_weak_ref_clear (&request->window);
+  g_object_unref (request->cancellable);
+  g_free (request);
+}
+
+static void
+sample_liquid_toolbar_color (EphyWindow *window)
+{
+  ToolbarColorRequest *request;
+  GtkWidget *view;
+
+  window->liquid_color_timeout = 0;
+  if (window->closing || !window->liquid_source || window->liquid_color_cancellable)
+    return;
+  view = gtk_widget_paintable_get_widget (window->liquid_source);
+  if (!view || !gtk_widget_get_mapped (view) || gtk_widget_get_width (view) <= 0)
+    return;
+  window->liquid_color_cancellable = g_cancellable_new ();
+  request = g_new0 (ToolbarColorRequest, 1);
+  g_weak_ref_init (&request->window, window);
+  request->cancellable = g_object_ref (window->liquid_color_cancellable);
+  webkit_web_view_get_snapshot (WEBKIT_WEB_VIEW (view), WEBKIT_SNAPSHOT_REGION_VISIBLE,
+                                WEBKIT_SNAPSHOT_OPTIONS_NONE, request->cancellable,
+                                toolbar_color_snapshot_cb, request);
+}
+
+static void
+queue_liquid_toolbar_color (EphyWindow *window)
+{
+  /* At most one shared-memory snapshot in flight, and two requests/second.
+   * The paintable is an invalidation observer only; it is never rendered. */
+  if (!window->closing && !window->liquid_color_timeout && !window->liquid_color_cancellable)
+    window->liquid_color_timeout = g_timeout_add_once (500, (GSourceOnceFunc)sample_liquid_toolbar_color, window);
+}
+
+static void
+clear_liquid_toolbar_source (EphyWindow *window)
+{
+  g_clear_handle_id (&window->liquid_color_timeout, g_source_remove);
+  if (window->liquid_color_cancellable)
+    g_cancellable_cancel (window->liquid_color_cancellable);
+  g_clear_object (&window->liquid_color_cancellable);
+  if (window->liquid_source)
+    g_signal_handlers_disconnect_by_data (window->liquid_source, window);
+  g_clear_object (&window->liquid_source);
+}
+
+static void
+sync_liquid_glass_toolbar (EphyWindow *window)
+{
+  gboolean enabled = g_settings_get_boolean (EPHY_SETTINGS_MAIN, EPHY_PREFS_LIQUID_GLASS_TOOLBAR);
+  GtkWidget *view = window->active_embed ? GTK_WIDGET (ephy_embed_get_web_view (window->active_embed)) : NULL;
+
+  if (window->closing)
+    return;
+  if (enabled) {
+    GdkRGBA color;
+
+    gtk_widget_add_css_class (GTK_WIDGET (window), "savana-liquid-glass");
+    if (window->liquid_source && gtk_widget_paintable_get_widget (window->liquid_source) == view &&
+        g_strcmp0 (g_object_get_data (G_OBJECT (window->liquid_source), "savana-source-uri"),
+                   view ? webkit_web_view_get_uri (WEBKIT_WEB_VIEW (view)) : NULL) == 0) {
+      queue_liquid_toolbar_color (window);
+      return;
+    }
+    clear_liquid_toolbar_source (window);
+    color.alpha = 0;
+    if (view)
+      webkit_web_view_get_background_color (WEBKIT_WEB_VIEW (view), &color);
+    if (!view || color.alpha < 1)
+      gdk_rgba_parse (&color, adw_style_manager_get_dark (adw_style_manager_get_default ()) ? "#202528" : "#f5f7f4");
+    apply_liquid_toolbar_color (window, &color);
+    if (view) {
+      window->liquid_source = GTK_WIDGET_PAINTABLE (gtk_widget_paintable_new (view));
+      g_object_set_data_full (G_OBJECT (window->liquid_source), "savana-source-uri",
+                              g_strdup (webkit_web_view_get_uri (WEBKIT_WEB_VIEW (view))), g_free);
+      g_signal_connect_object (window->liquid_source, "invalidate-contents", G_CALLBACK (queue_liquid_toolbar_color), window, G_CONNECT_SWAPPED);
+      g_signal_connect_object (window->liquid_source, "invalidate-size", G_CALLBACK (queue_liquid_toolbar_color), window, G_CONNECT_SWAPPED);
+      queue_liquid_toolbar_color (window);
+    }
+  } else {
+    clear_liquid_toolbar_source (window);
+    gtk_widget_remove_css_class (GTK_WIDGET (window), "savana-liquid-glass");
+    apply_liquid_toolbar_color (window, NULL);
+  }
+}
+
+static void
 sync_tab_address (EphyWebView *view,
                   GParamSpec  *pspec,
                   EphyWindow  *window)
@@ -1264,6 +1406,7 @@ sync_tab_address (EphyWebView *view,
     return;
 
   address = ephy_web_view_get_display_address (view);
+  sync_liquid_glass_toolbar (window);
   if (ephy_web_view_is_overview (view) || ephy_web_view_is_newtab (view) || ephy_web_view_get_is_blank (view))
     gtk_widget_remove_css_class (GTK_WIDGET (window), "savana-compact");
   else
@@ -3958,6 +4101,12 @@ ephy_window_dispose (GObject *object)
   /* Only do these once */
   if (!window->closing) {
     window->closing = TRUE;
+    clear_liquid_toolbar_source (window);
+    if (window->liquid_color_provider) {
+      gtk_style_context_remove_provider_for_display (gtk_widget_get_display (GTK_WIDGET (window)),
+                                                     GTK_STYLE_PROVIDER (window->liquid_color_provider));
+      g_clear_object (&window->liquid_color_provider);
+    }
 
     g_cancellable_cancel (window->cancellable);
     g_clear_object (&window->cancellable);
@@ -4709,6 +4858,7 @@ ephy_window_constructed (GObject *object)
 
   /* Tabs belong to the page pane, not above the full-height sidebar. */
   page_box = ephy_fullscreen_box_new ();
+  window->page_box = page_box;
   ephy_fullscreen_box_set_content (page_box, window->toast_overlay);
   ephy_fullscreen_box_add_top_bar (page_box, GTK_WIDGET (window->tab_bar));
   g_object_bind_property (window->fullscreen_box, "fullscreen", page_box, "fullscreen", G_BINDING_SYNC_CREATE);
@@ -4724,6 +4874,9 @@ ephy_window_constructed (GObject *object)
 
   ephy_tab_view_set_tab_bar (window->tab_view, window->tab_bar);
   ephy_tab_view_set_tab_overview (window->tab_view, ADW_TAB_OVERVIEW (window->overview));
+  g_signal_connect_object (EPHY_SETTINGS_MAIN, "changed::" EPHY_PREFS_LIQUID_GLASS_TOOLBAR,
+                           G_CALLBACK (sync_liquid_glass_toolbar), window, G_CONNECT_SWAPPED);
+  sync_liquid_glass_toolbar (window);
 
   /* other notifiers */
   action = g_action_map_lookup_action (G_ACTION_MAP (shell),

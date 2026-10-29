@@ -13,6 +13,7 @@ template $EphyPageMenuButton: Adw.Bin {
     StackPage {
       name: "sidebar";
       child: Button {
+        styles ["savana-sidebar-toggle"]
         icon-name: "savana-sidebar-symbolic";
         tooltip-text: _("Show Sidebar");
         action-name: "win.toggle-sidebar";

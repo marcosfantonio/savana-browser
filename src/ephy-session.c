@@ -1063,6 +1063,7 @@ typedef struct {
   gint active_tab;
 
   gboolean is_first_tab;
+  gboolean skip_start_pages;
 } SessionParserContext;
 
 static SessionParserContext *
@@ -1192,6 +1193,18 @@ session_parse_embed (SessionParserContext  *context,
     }
   }
 
+  /* Start Pages are transient on automatic resume. Match exact internal URLs,
+   * never titles or external homepages, and preserve the active-tab index. */
+  if (context->skip_start_pages &&
+      (g_strcmp0 (url, "about:overview") == 0 ||
+       g_strcmp0 (url, "ephy-about:overview") == 0 ||
+       g_strcmp0 (url, "about:newtab") == 0 ||
+       g_strcmp0 (url, "ephy-about:newtab") == 0)) {
+    if (adw_tab_view_get_n_pages (tab_view) < context->active_tab)
+      context->active_tab--;
+    return;
+  }
+
   /* In the case that crash happens before we receive the URL from the server,
    * this will open an about:blank tab.
    * See http://bugzilla.gnome.org/show_bug.cgi?id=591294
@@ -1306,6 +1319,18 @@ session_end_element (GMarkupParseContext  *ctx,
       /* This can happen if the session is malformed, or if the window is
        * destroyed before the session finishes loading.
        */
+      return;
+    }
+
+    if (context->skip_start_pages &&
+        ephy_tab_view_get_n_pages (ephy_window_get_tab_view (context->window)) == 0) {
+      /* A window containing only old Start Pages must not manufacture another
+       * one. The shell opens the single fresh Start Page after restoration. */
+      g_clear_signal_handler (&context->destroy_id, context->window);
+      gtk_window_destroy (GTK_WINDOW (context->window));
+      context->window = NULL;
+      context->active_tab = 0;
+      context->is_first_window = FALSE;
       return;
     }
 
@@ -1476,12 +1501,13 @@ load_stream_read_cb (GObject      *object,
  * then call ephy_session_load_from_stream_finish() to get the result of
  * the operation.
  **/
-void
-ephy_session_load_from_stream (EphySession         *session,
+static void
+session_load_from_stream (EphySession         *session,
                                GInputStream        *stream,
                                GCancellable        *cancellable,
                                GAsyncReadyCallback  callback,
-                               gpointer             user_data)
+                               gpointer             user_data,
+                               gboolean             skip_start_pages)
 {
   GTask *task;
   SessionParserContext *context;
@@ -1503,6 +1529,7 @@ ephy_session_load_from_stream (EphySession         *session,
   g_task_set_priority (task, G_PRIORITY_HIGH_IDLE + 30);
 
   context = session_parser_context_new (session);
+  context->skip_start_pages = skip_start_pages;
   parser = g_markup_parse_context_new (&session_parser, 0, context, (GDestroyNotify)session_parser_context_free);
   data = load_from_stream_async_data_new (parser);
   g_task_set_task_data (task, data, (GDestroyNotify)load_from_stream_async_data_free);
@@ -1523,6 +1550,16 @@ ephy_session_load_from_stream (EphySession         *session,
  *
  * Returns: %TRUE if at least a window has been opened
  **/
+void
+ephy_session_load_from_stream (EphySession         *session,
+                               GInputStream        *stream,
+                               GCancellable        *cancellable,
+                               GAsyncReadyCallback  callback,
+                               gpointer             user_data)
+{
+  session_load_from_stream (session, stream, cancellable, callback, user_data, FALSE);
+}
+
 gboolean
 ephy_session_load_from_stream_finish (EphySession   *session,
                                       GAsyncResult  *result,
@@ -1565,8 +1602,9 @@ session_read_cb (GObject      *object,
     EphySession *session;
 
     session = EPHY_SESSION (g_task_get_source_object (task));
-    ephy_session_load_from_stream (session, G_INPUT_STREAM (stream),
-                                   g_task_get_cancellable (task), load_from_stream_cb, task);
+    session_load_from_stream (session, G_INPUT_STREAM (stream),
+                               g_task_get_cancellable (task), load_from_stream_cb, task,
+                               GPOINTER_TO_INT (g_task_get_task_data (task)));
     g_object_unref (stream);
   } else {
     g_task_return_error (task, error);
@@ -1592,12 +1630,13 @@ session_read_cb (GObject      *object,
  * then call ephy_session_load_finish() to get the result of
  * the operation.
  **/
-void
-ephy_session_load (EphySession         *session,
+static void
+session_load (EphySession         *session,
                    const char          *filename,
                    GCancellable        *cancellable,
                    GAsyncReadyCallback  callback,
-                   gpointer             user_data)
+                   gpointer             user_data,
+                   gboolean             skip_start_pages)
 {
   GFile *save_to_file;
   GTask *task;
@@ -1611,6 +1650,7 @@ ephy_session_load (EphySession         *session,
 
   task = g_task_new (session, cancellable, callback, user_data);
   g_task_set_source_tag (task, ephy_session_load);
+  g_task_set_task_data (task, GINT_TO_POINTER (skip_start_pages), NULL);
   /* Use a priority lower than drawing events (HIGH_IDLE + 20) to make sure
    * the main window is shown as soon as possible at startup
    */
@@ -1632,6 +1672,16 @@ ephy_session_load (EphySession         *session,
  *
  * Returns: %TRUE if at least a window has been opened
  **/
+void
+ephy_session_load (EphySession         *session,
+                   const char          *filename,
+                   GCancellable        *cancellable,
+                   GAsyncReadyCallback  callback,
+                   gpointer             user_data)
+{
+  session_load (session, filename, cancellable, callback, user_data, FALSE);
+}
+
 gboolean
 ephy_session_load_finish (EphySession   *session,
                           GAsyncResult  *result,
@@ -1702,8 +1752,8 @@ ephy_session_resume (EphySession         *session,
   if (!has_session_state) {
     session_maybe_open_window (session);
   } else if (ephy_shell_get_n_windows (shell) == 0) {
-    ephy_session_load (session, SESSION_STATE, cancellable,
-                       session_resumed_cb, task);
+    session_load (session, SESSION_STATE, cancellable,
+                   session_resumed_cb, task, TRUE);
     return;
   }
 

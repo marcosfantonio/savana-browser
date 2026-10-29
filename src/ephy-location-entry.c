@@ -1606,7 +1606,7 @@ ephy_location_entry_start_change_combined_stop_reload_state (EphyLocationEntry *
                                                              gboolean           loading)
 {
   if (loading) {
-    gtk_button_set_icon_name (GTK_BUTTON (self->combined_stop_reload_button), "process-stop-symbolic");
+    gtk_button_set_icon_name (GTK_BUTTON (self->combined_stop_reload_button), "savana-stop-symbolic");
     /* Translators: tooltip for the stop button */
     gtk_widget_set_tooltip_text (self->combined_stop_reload_button, _("Stop"));
   } else {
